@@ -261,8 +261,14 @@ public struct Invoice: Sendable {
     // MARK: Rendering
 
     /// Lays the document out.
-    public func render() -> Document {
+    /// Lays the document out.
+    ///
+    /// The font, if any, has to be in place before anything is drawn — text is
+    /// committed to the content stream as it is laid out, so a font attached
+    /// afterwards arrives too late to be used.
+    public func render(embedding font: EmbeddedFont? = nil) -> Document {
         let pdf = Document(size: size, orientation: .portrait, margin: 48, fontSize: 9.5, leading: 13)
+        pdf.embeddedFont = font
 
         masthead(pdf)
         parties(pdf)

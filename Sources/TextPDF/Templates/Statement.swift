@@ -105,8 +105,14 @@ public struct Statement: Sendable {
 
     // MARK: Rendering
 
-    public func render() -> Document {
+    /// Lays the document out.
+    ///
+    /// The font, if any, has to be in place before anything is drawn — text is
+    /// committed to the content stream as it is laid out, so a font attached
+    /// afterwards arrives too late to be used.
+    public func render(embedding font: EmbeddedFont? = nil) -> Document {
         let pdf = Document(size: size, orientation: orientation, margin: 48, fontSize: 9, leading: 12.5)
+        pdf.embeddedFont = font
 
         masthead(pdf)
         accountBlock(pdf)
