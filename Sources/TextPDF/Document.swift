@@ -40,6 +40,31 @@ public final class Document {
     /// Drawn on every page once the total is known.
     private var footer: ((Document, Int, Int) -> Void)?
 
+    /// Text that could not be drawn as written, with the reason.
+    ///
+    /// Unrepresentable characters become `?`, which leaves a name looking
+    /// merely odd rather than obviously broken — so the substitutions are
+    /// recorded here and callers are expected to say something about them.
+    public private(set) var substitutions: [Substitution] = []
+
+    /// A run of text the writer could not reproduce.
+    public struct Substitution: Sendable, Equatable {
+
+        /// The text as it was given.
+        public let text: String
+
+        /// `nil` when a font would fix it; a script name when nothing would.
+        public let unsupportedScript: String?
+    }
+
+    /// A font carried in the file, used for text the base-14 set cannot draw.
+    ///
+    /// Applied per string rather than wholesale: an invoice with one Cyrillic
+    /// name should embed the glyphs for that name and keep Helvetica for the
+    /// other ninety-nine per cent, which keeps the file small and the
+    /// typography consistent.
+    public var embeddedFont: EmbeddedFont?
+
     public init(
         size: PageSize = .a4,
         orientation: Orientation = .portrait,
@@ -189,13 +214,24 @@ public final class Document {
     ) -> Document {
         guard !text.isEmpty else { return self }
 
+        // The base-14 fonts cover Windows-1252. Anything beyond it is drawn
+        // with the embedded font when one is loaded, and only then — mixing
+        // per string keeps the subset to what is actually needed.
+        if PDFEncoding.needsEmbedding(text) {
+            if let embeddedFont, embeddedFont.covers(text) {
+                return embeddedText(text, x: x, baseline: baseline, size: size,
+                                    color: color, align: align, boxWidth: boxWidth, using: embeddedFont)
+            }
+            record(text)
+        }
+
         let escaped = PDFEncoding.escape(text)
         var originX = x
 
         // Alignment is computed from the measured width — the reason the font
         // metrics exist at all.
         if align != .left, boxWidth > 0 {
-            let measured = font.widthOf(escaped, size: size)
+            let measured = font.widthOf(text, size: size)
             originX += align == .right ? boxWidth - measured : (boxWidth - measured) / 2
         }
 
@@ -210,6 +246,40 @@ public final class Document {
             PDFEncoding.number(originX),
             PDFEncoding.number(baseline),
             escaped
+        )
+        return self
+    }
+
+    /// Notes text that will come out as question marks.
+    private func record(_ text: String) {
+        let script = Script.unsupported(in: text)
+        guard !substitutions.contains(where: { $0.text == text }) else { return }
+        substitutions.append(Substitution(text: text, unsupportedScript: script))
+    }
+
+    /// Draws text as glyph IDs under Identity-H.
+    private func embeddedText(
+        _ text: String, x: Double, baseline: Double, size: Double,
+        color: Color?, align: Align, boxWidth: Double, using embedded: EmbeddedFont
+    ) -> Document {
+        let (hex, measured) = embedded.encode(text, size: size)
+        guard !hex.isEmpty else { return self }
+
+        var originX = x
+        if align != .left, boxWidth > 0 {
+            originX += align == .right ? boxWidth - measured : (boxWidth - measured) / 2
+        }
+
+        let ink = color ?? .black()
+        current += "q\n"
+        if !ink.isBlack { current += ink.operands + " rg\n" }
+
+        current += String(
+            format: "BT\n/F4 %.2F Tf\n%.2F %.2F Td\n<%@> Tj\nET\nQ\n",
+            PDFEncoding.number(size),
+            PDFEncoding.number(originX),
+            PDFEncoding.number(baseline),
+            hex
         )
         return self
     }
@@ -325,7 +395,8 @@ public final class Document {
             width: pageWidth,
             height: pageHeight,
             metadata: metadata,
-            creationDate: creationDate
+            creationDate: creationDate,
+            embedded: embeddedFont
         )
     }
 
@@ -360,6 +431,26 @@ public final class Document {
     // MARK: Wrapping
 
     /// Splits text into lines that fit `width`, honouring existing newlines.
+    /// `text` shortened to fit `width`, measured as it will be drawn.
+    func truncate(_ text: String, font: Font, size: Double, width: Double) -> String {
+        guard measured(text, font: font, size: size) > width else { return text }
+
+        let ellipsis = measured("...", font: font, size: size)
+        var trimmed = text
+        while !trimmed.isEmpty, measured(trimmed, font: font, size: size) + ellipsis > width {
+            trimmed.removeLast()
+        }
+        return trimmed + "..."
+    }
+
+    /// The width of text as it will actually be drawn.
+    func measured(_ text: String, font: Font, size: Double) -> Double {
+        if let embeddedFont, PDFEncoding.needsEmbedding(text), embeddedFont.covers(text) {
+            return embeddedFont.widthOf(text, size: size)
+        }
+        return font.widthOf(text, size: size)
+    }
+
     func wrap(_ text: String, font: Font, size: Double, width: Double) -> [String] {
         var lines: [String] = []
 
@@ -369,7 +460,7 @@ public final class Document {
 
             for word in words {
                 let candidate = line.isEmpty ? word : line + " " + word
-                if font.widthOf(PDFEncoding.escape(candidate), size: size) <= width {
+                if measured(candidate, font: font, size: size) <= width {
                     line = candidate
                     continue
                 }
@@ -379,10 +470,10 @@ public final class Document {
                 // forever; break it rather than overflow the margin.
                 var remainder = word
                 while remainder.count > 1,
-                      font.widthOf(PDFEncoding.escape(remainder), size: size) > width {
+                      measured(remainder, font: font, size: size) > width {
                     var head = remainder
                     while head.count > 1,
-                          font.widthOf(PDFEncoding.escape(head), size: size) > width {
+                          measured(head, font: font, size: size) > width {
                         head.removeLast()
                     }
                     lines.append(head)

@@ -116,7 +116,7 @@ public final class Table {
             let inner = width - leading - trailing
 
             pdf.textAt(
-                font.truncate(cell, size: size, width: inner),
+                pdf.truncate(cell, font: font, size: size, width: inner),
                 x: x + leading,
                 y: y - font.bandBaseline(bandHeight: height, size: size),
                 size: size,

@@ -51,11 +51,26 @@ Not tax advice, and not exhaustive. It verifies the particulars, not whether the
 
 Every amount is pre-formatted. Rendering money correctly means knowing the currency's decimal exponent, its thousands convention and its symbol placement, and a layout type has no business guessing at any of that. Format it where the money lives and pass the result.
 
-## The limit worth knowing
+## Text beyond Latin-1
 
-WinAnsi encoding covers Latin-1. **Greek, Cyrillic, Hebrew, Arabic and CJK will not render** — they become `?`, visibly, rather than silently vanishing. Polish and similar transliterate (`Łódź` → `Lódz`).
+The base-14 fonts every reader is required to have cover Windows-1252 and nothing else, so Greek, Cyrillic and CJK come out as `?` — visibly, rather than silently vanishing. Point the document at a TrueType font and they render properly:
 
-That is where this stops and a font-embedding library starts. `£`, `€`, accented Latin, curly quotes and dashes all survive intact.
+```swift
+let pdf = Document(size: .a4, margin: 48)
+pdf.embeddedFont = try EmbeddedFont.load(URL(fileURLWithPath: "/Library/Fonts/Arial Unicode.ttf"))
+
+pdf.text("ООО «Ромашка», ул. Тверская 7, Москва")
+pdf.text("株式会社サンプル")
+pdf.text("Invoice INV-001")        // stays in Helvetica
+```
+
+Only the runs that need it are embedded, and only the glyphs they use: a document with one Cyrillic name carries a few kilobytes of font, not the 23 MB the file came from. Latin text keeps the base fonts, so the typography does not change under you.
+
+Whatever still could not be drawn is listed in `document.substitutions` after rendering, so a name printed as `???????` is something you can report rather than something a customer finds.
+
+**Arabic and Hebrew are refused, not embedded.** Both run right to left and Arabic letters change shape by position; placing their code points left to right produces disconnected letters in the wrong order. That needs a shaping engine, and being wrong in a language the writer cannot read is worse than declining.
+
+TrueType outlines only — a `.ttf`. PostScript-outline `.otf` files and `.ttc` collections are reported rather than embedded incorrectly.
 
 ## Requirements
 

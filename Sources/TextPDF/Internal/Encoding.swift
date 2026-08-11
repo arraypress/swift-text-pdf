@@ -80,6 +80,18 @@ enum PDFEncoding {
         "\u{00A0}": " ",                     // non-breaking space
     ]
 
+    /// Whether text contains anything Windows-1252 cannot hold.
+    ///
+    /// Cheap enough to run per string: the answer is no for almost every
+    /// invoice, and when it is yes only that string pays for the embedded
+    /// font.
+    static func needsEmbedding(_ text: String) -> Bool {
+        text.unicodeScalars.contains { scalar in
+            guard scalar.value >= 0x20, scalar.value != 0x7F else { return false }
+            return windows1252(scalar) == nil && cp1252Highs[scalar] == nil
+        }
+    }
+
     /// Clamps a value to something the format can express.
     ///
     /// `INF` and `NAN` would be written literally into the content stream, and
