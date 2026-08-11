@@ -308,6 +308,43 @@ final class TextPDFTests: XCTestCase {
         XCTAssertEqual(first - pdf.cursor(), first - pdf.cursor(), accuracy: 0.001)
     }
 
+    func testTableEdgesAlignWithTheMargins() {
+        // A section label above a table starts at the left margin; padding the
+        // first column inward means the two no longer line up, and the last
+        // column stops meeting the right margin every other figure uses.
+        let pdf = Document(margin: 48)
+        let table = Table(headers: ["Rate", "Net", "VAT"])
+        table.widths([0.4, 0.3, 0.3]).align([1: .right, 2: .right])
+        table.row(["20%", "£770.40", "£154.08"])
+        table.draw(pdf)
+
+        let stream = String(decoding: pdf.render(), as: UTF8.self)
+        XCTAssertTrue(stream.contains("48.00 "), "the first column must start at the left margin")
+    }
+
+    func testAnInvoiceWithManyLinesBreaksAcrossPages() {
+        // Uncommon but real — a year of licences on one invoice.
+        let items = (1...60).map {
+            LineItem(description: "Licence \($0)", amount: "£10.00", unitPrice: "£10.00")
+        }
+        let invoice = Invoice(
+            branding: Branding(name: "T"), number: "INV-1",
+            from: Party(name: "S", address: ["1"], taxID: "GB1"),
+            to: Party(name: "B", address: ["2"]),
+            items: items,
+            totals: [("Subtotal", "£600.00")],
+            total: [("Total due", "£720.00")],
+            supplyDate: "1 Aug"
+        )
+        let document = invoice.render()
+        XCTAssertGreaterThan(document.pageCount(), 1)
+
+        // The item table's heading must repeat, or page two is a column of
+        // unlabelled numbers.
+        let stream = String(decoding: document.render(), as: UTF8.self)
+        XCTAssertGreaterThan(stream.components(separatedBy: "(Description) Tj").count - 1, 1)
+    }
+
     func testEmptyTableDrawsNothingAndDoesNotCrash() {
         let pdf = Document()
         let before = pdf.cursor()

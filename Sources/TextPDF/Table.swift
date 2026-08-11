@@ -100,14 +100,24 @@ public final class Table {
         let y = pdf.cursor()
         let padding = 6.0
 
+        let last = cells.count - 1
+
         for (index, cell) in cells.enumerated() {
             let width = index < widths.count ? widths[index] : 0
             guard width > 0 else { continue }
 
-            let inner = width - (padding * 2)
+            // Padding sits *between* columns, not outside them. Indenting the
+            // first column pushes it off the left margin, so a section label
+            // above the table no longer lines up with its first heading — and
+            // the last column stops meeting the right margin that every other
+            // right-aligned figure on the page uses.
+            let leading = index == 0 ? 0 : padding
+            let trailing = index == last ? 0 : padding
+            let inner = width - leading - trailing
+
             pdf.textAt(
                 font.truncate(cell, size: size, width: inner),
-                x: x + padding,
+                x: x + leading,
                 y: y - font.bandBaseline(bandHeight: height, size: size),
                 size: size,
                 font: font,
