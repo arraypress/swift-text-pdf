@@ -195,6 +195,14 @@ public struct Statement: Sendable {
 
         if !summary.isEmpty {
             let column = pdf.contentWidth() / 2
+
+            // The right column needs its own heading, exactly as the invoice
+            // pairs BILLED TO with DETAILS. Without one the first summary row
+            // sits level with the 11pt company name and reads as a stray
+            // line rather than the top of a block.
+            pdf.textAt("SUMMARY", x: pdf.left() + column + 20, y: top, size: 7,
+                       font: .helveticaBold, color: branding.muted)
+
             var detailY = top - 15
             for row in summary {
                 pdf.textAt(row.label, x: pdf.left() + column + 20, y: detailY, size: 8.5,
