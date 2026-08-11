@@ -431,6 +431,62 @@ public final class Document {
     // MARK: Wrapping
 
     /// Splits text into lines that fit `width`, honouring existing newlines.
+    /// Draws wrapped text in a box of a given width, advancing the cursor.
+    ///
+    /// The difference from `cell` is that this one cannot silently lose the end
+    /// of a sentence: `cell` draws a single line and anything past the box edge
+    /// is simply not there, which is fine for a table cell that was truncated
+    /// on purpose and wrong for a note somebody wrote.
+    @discardableResult
+    public func block(
+        _ text: String,
+        x: Double,
+        width: Double,
+        size: Double? = nil,
+        font: Font = .helvetica,
+        color: Color? = nil,
+        align: Align = .left,
+        leading lineHeight: Double? = nil
+    ) -> Double {
+        let pointSize = size ?? fontSize
+        let step = lineHeight ?? pointSize * 1.35
+        let top = y
+        var baseline = y
+
+        // Explicit newlines are respected; each paragraph then wraps in turn.
+        for paragraph in text.components(separatedBy: "\n") {
+            let lines = paragraph.isEmpty
+                ? [""]
+                : wrap(paragraph, font: font, size: pointSize, width: width)
+
+            for line in lines {
+                if !line.isEmpty {
+                    textAt(line, x: x, y: baseline - font.ascender(pointSize),
+                           size: pointSize, font: font, color: color,
+                           align: align, boxWidth: width)
+                }
+                baseline -= step
+            }
+        }
+        move(to: baseline)
+        return top - baseline
+    }
+
+    /// The height `block` would take, without drawing anything.
+    ///
+    /// For sizing a panel before its contents go in it.
+    public func blockHeight(
+        _ text: String, font: Font = .helvetica, size: Double? = nil,
+        width: Double, leading lineHeight: Double? = nil
+    ) -> Double {
+        let pointSize = size ?? fontSize
+        let step = lineHeight ?? pointSize * 1.35
+        let count = text.components(separatedBy: "\n").reduce(0) { total, paragraph in
+            total + (paragraph.isEmpty ? 1 : wrap(paragraph, font: font, size: pointSize, width: width).count)
+        }
+        return Double(count) * step
+    }
+
     /// `text` shortened to fit `width`, measured as it will be drawn.
     func truncate(_ text: String, font: Font, size: Double, width: Double) -> String {
         guard measured(text, font: font, size: size) > width else { return text }

@@ -16,6 +16,7 @@ public final class Table {
     private var alignments: [Int: Align] = [:]
     private var striped = false
     private var height: Double = 18
+    private var totalRow: [String]?
 
     public init(headers: [String] = []) {
         self.headers = headers
@@ -34,6 +35,14 @@ public final class Table {
 
     @discardableResult
     public func rows(_ values: [[String]]) -> Table { tableRows += values; return self }
+
+    /// A summing row, set apart from the body.
+    ///
+    /// Part of the table rather than a block beneath it, because the figures
+    /// have to line up with the columns they total — a separate block drifts
+    /// out of alignment the first time a column width changes.
+    @discardableResult
+    public func total(_ cells: [String]) -> Table { totalRow = cells; return self }
 
     @discardableResult
     public func striped(_ enabled: Bool = true) -> Table { striped = enabled; return self }
@@ -67,6 +76,21 @@ public final class Table {
                 )
             }
             drawRow(pdf, cells: cells, widths: columnWidths, size: pointSize, font: .helvetica, color: nil)
+        }
+
+        if let totalRow {
+            // Kept with the last body row: a totals line alone at the top of a
+            // page reads as the first row of a table that never arrives.
+            if pdf.remaining() < height * 2 {
+                pdf.pageBreak()
+                drawHeader(pdf, widths: columnWidths, size: pointSize, fill: headerFill)
+            }
+            let top = pdf.cursor()
+            pdf.line(from: pdf.left(), top, to: pdf.right(), top, color: .grey(60), thickness: 0.75)
+            drawRow(pdf, cells: totalRow, widths: columnWidths, size: pointSize,
+                    font: .helveticaBold, color: .grey(20))
+            pdf.line(from: pdf.left(), pdf.cursor(), to: pdf.right(), pdf.cursor(),
+                     color: .grey(60), thickness: 0.75)
         }
         return pdf
     }

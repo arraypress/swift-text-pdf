@@ -286,10 +286,7 @@ public struct Statement: Sendable {
                  color: branding.hairline, thickness: 0.5)
         pdf.gap(6)
 
-        for line in trimmed.components(separatedBy: "\n") {
-            pdf.cell(line, x: pdf.left(), boxWidth: pdf.contentWidth(), size: 8.5,
-                     font: .helvetica, color: branding.ink)
-            pdf.gap(12)
-        }
+        pdf.block(trimmed, x: pdf.left(), width: pdf.contentWidth(),
+                  size: 8.5, font: .helvetica, color: branding.ink, leading: 12)
     }
 }

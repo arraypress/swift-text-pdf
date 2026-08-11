@@ -499,9 +499,8 @@ public struct Invoice: Sendable {
         guard kind.showsMoney else {
             if let standing = kind.standingNote {
                 pdf.gap(20)
-                pdf.cell(standing, x: pdf.left(), boxWidth: pdf.contentWidth(), size: 8.5,
-                         font: .helvetica, color: branding.muted)
-                pdf.gap(12)
+                pdf.block(standing, x: pdf.left(), width: pdf.contentWidth(),
+                          size: 8.5, font: .helvetica, color: branding.muted, leading: 12)
             }
             return
         }
@@ -539,9 +538,8 @@ public struct Invoice: Sendable {
 
         if let standing = kind.standingNote {
             pdf.gap(4)
-            pdf.cell(standing, x: pdf.left(), boxWidth: pdf.contentWidth(), size: 8.5,
-                     font: .helvetica, color: branding.muted)
-            pdf.gap(12)
+            pdf.block(standing, x: pdf.left(), width: pdf.contentWidth(),
+                      size: 8.5, font: .helvetica, color: branding.muted, leading: 12)
         }
     }
 
@@ -551,7 +549,10 @@ public struct Invoice: Sendable {
         let notes = vat.notes(german: germanNotes)
         guard !notes.isEmpty else { return }
 
-        let height = 20 + (12 * Double(notes.count))
+        let inner = pdf.contentWidth() - 28
+        let height = 20 + notes.reduce(0.0) { total, note in
+            total + pdf.blockHeight(note, size: 8.5, width: inner, leading: 12)
+        }
 
         pdf.gap(24)
         pdf.breakIfNeeded(height + 20)
@@ -569,9 +570,9 @@ public struct Invoice: Sendable {
         pdf.gap(2)
 
         for (index, note) in notes.enumerated() {
-            pdf.cell(note, x: pdf.left() + 14, boxWidth: pdf.contentWidth() - 28, size: 8.5,
-                     font: index == 0 ? .helveticaBold : .helvetica, color: branding.ink)
-            pdf.gap(12)
+            pdf.block(note, x: pdf.left() + 14, width: inner, size: 8.5,
+                      font: index == 0 ? .helveticaBold : .helvetica,
+                      color: branding.ink, leading: 12)
         }
     }
 
@@ -595,10 +596,7 @@ public struct Invoice: Sendable {
                  font: .helveticaBold, color: branding.muted)
         pdf.gap(14)
 
-        for line in trimmed.components(separatedBy: "\n") {
-            pdf.cell(line, x: pdf.left(), boxWidth: pdf.contentWidth(), size: 8.5,
-                     font: .helvetica, color: branding.ink)
-            pdf.gap(12)
-        }
+        pdf.block(trimmed, x: pdf.left(), width: pdf.contentWidth(),
+                  size: 8.5, font: .helvetica, color: branding.ink, leading: 12)
     }
 }
