@@ -279,6 +279,53 @@ final class TextPDFTests: XCTestCase {
         XCTAssertTrue(minimalInvoice(kind: .creditNote, reference: "INV-1").complianceWarnings().isEmpty)
     }
 
+    func testSelfBilledInvoiceDemandsTheSupplierVatNumber() {
+        // HMRC requires both parties' numbers on a self-billed invoice —
+        // the supplier's is what makes it their invoice.
+        let base = minimalInvoice(kind: .selfBilling)
+        XCTAssertTrue(base.complianceWarnings().contains { $0.contains("supplier's VAT number") })
+    }
+
+    func testSelfBillingWordingAppears() {
+        // Without the words on the face of it the recipient cannot rely on it.
+        XCTAssertTrue(DocumentKind.selfBilling.standingNote?.contains("Self-billing") ?? false)
+    }
+
+    func testRemittanceIsNotATaxDocument() {
+        // It reports payment against someone else's invoice; the particulars
+        // belong on theirs.
+        let advice = Invoice(
+            kind: .remittance, branding: Branding(name: "T"), number: "RA-1",
+            from: Party(name: "S"), to: Party(name: "B"), items: []
+        )
+        XCTAssertTrue(advice.complianceWarnings().isEmpty)
+        XCTAssertEqual(DocumentKind.remittance.title, "REMITTANCE ADVICE")
+    }
+
+    func testDeliveryNoteShowsNoMoney() {
+        // It travels with the goods; the warehouse has no business seeing the
+        // price. Suppressing the columns is the document's defining behaviour.
+        XCTAssertFalse(DocumentKind.deliveryNote.showsMoney)
+        XCTAssertTrue(DocumentKind.invoice.showsMoney)
+
+        let note = Invoice(
+            kind: .deliveryNote, branding: Branding(name: "T"), number: "DN-1",
+            from: Party(name: "S"), to: Party(name: "B"),
+            items: [LineItem(description: "Widget", amount: "£99.00", quantity: "3", unitPrice: "£33.00")],
+            totals: [("Subtotal", "£99.00")], total: [("Total", "£99.00")]
+        )
+        let stream = String(decoding: note.render().render(), as: UTF8.self)
+        XCTAssertFalse(stream.contains("99.00"), "a price reached a delivery note")
+        XCTAssertTrue(stream.contains("(Widget) Tj"))
+    }
+
+    func testDebitNoteMustReferenceWhatItAdjusts() {
+        XCTAssertTrue(
+            minimalInvoice(kind: .debitNote).complianceWarnings()
+                .contains { $0.contains("reference the document") }
+        )
+    }
+
     func testAQuoteIsNotHeldToTaxRules() {
         // Demanding a supply date on a quotation would be a false warning.
         let quote = Invoice(

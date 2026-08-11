@@ -25,6 +25,29 @@ public enum DocumentKind: String, Sendable, CaseIterable, Codable {
     case receipt
     case reminder
 
+    /// Sent when *you* pay someone, itemising which of their invoices the
+    /// payment covers. Not a tax document — theirs is.
+    case remittance
+
+    /// Issued by the buyer on the supplier's behalf, as a marketplace does.
+    /// "Self-billing" must appear on the face of it, and both parties' VAT
+    /// numbers are required.
+    case selfBilling
+
+    /// Accompanies goods. Shows what was sent, never what it cost — a
+    /// delivery note goes in the box, and the recipient's warehouse has no
+    /// business seeing the price.
+    case deliveryNote
+
+    /// Issued by the buyer, committing to purchase.
+    case purchaseOrder
+
+    /// Sent by the seller acknowledging an order before fulfilment.
+    case orderConfirmation
+
+    /// The counterpart to a credit note: charging more after the fact.
+    case debitNote
+
     public var title: String {
         switch self {
         case .invoice: return "INVOICE"
@@ -33,6 +56,12 @@ public enum DocumentKind: String, Sendable, CaseIterable, Codable {
         case .proforma: return "PROFORMA"
         case .receipt: return "RECEIPT"
         case .reminder: return "REMINDER"
+        case .remittance: return "REMITTANCE ADVICE"
+        case .selfBilling: return "SELF-BILLED INVOICE"
+        case .deliveryNote: return "DELIVERY NOTE"
+        case .purchaseOrder: return "PURCHASE ORDER"
+        case .orderConfirmation: return "ORDER CONFIRMATION"
+        case .debitNote: return "DEBIT NOTE"
         }
     }
 
@@ -40,8 +69,10 @@ public enum DocumentKind: String, Sendable, CaseIterable, Codable {
     var totalLabel: String {
         switch self {
         case .creditNote: return "Total credited"
+        case .debitNote: return "Total charged"
+        case .purchaseOrder, .orderConfirmation: return "Order total"
         case .quote, .proforma: return "Total"
-        case .receipt: return "Total paid"
+        case .receipt, .remittance: return "Total paid"
         default: return "Total due"
         }
     }
@@ -57,10 +88,29 @@ public enum DocumentKind: String, Sendable, CaseIterable, Codable {
             return "Proforma invoice — not a VAT invoice. A tax invoice follows on payment."
         case .receipt:
             return "Paid in full. No further payment is due."
+        case .deliveryNote:
+            return "Please check the contents against this note and report any discrepancy within 7 days."
+        case .orderConfirmation:
+            return "This confirms your order. An invoice follows on despatch."
+        case .debitNote:
+            return "This debit note charges the additional amount shown against the document referenced above."
+        case .remittance:
+            return "This advice confirms payment of the invoices listed above. No action is required."
+        case .selfBilling:
+            // HMRC requires the words on the face of the document; without
+            // them the recipient cannot rely on it.
+            return "Self-billing. This invoice was raised by the customer on the supplier's behalf under a self-billing agreement."
         default:
             return nil
         }
     }
+
+    /// Whether money appears at all.
+    ///
+    /// A delivery note travels with the goods, and the recipient's warehouse
+    /// has no business seeing what the buyer paid. Suppressing the columns is
+    /// the document's defining behaviour, not a styling choice.
+    var showsMoney: Bool { self != .deliveryNote }
 
     /// Whether the mandatory-particulars check applies.
     ///
@@ -68,8 +118,11 @@ public enum DocumentKind: String, Sendable, CaseIterable, Codable {
     /// be a false warning.
     var isTaxDocument: Bool {
         switch self {
-        case .invoice, .creditNote, .receipt: return true
-        case .quote, .proforma, .reminder: return false
+        case .invoice, .creditNote, .receipt, .selfBilling, .debitNote: return true
+        // A remittance advice reports a payment against someone else's
+        // invoice; the tax particulars belong on theirs, not on this.
+        case .quote, .proforma, .reminder, .remittance,
+             .deliveryNote, .purchaseOrder, .orderConfirmation: return false
         }
     }
 }
@@ -186,8 +239,16 @@ public struct Invoice: Sendable {
         if vat.requiresBothVatNumbers, to.taxID.trimmingCharacters(in: .whitespaces).isEmpty {
             missing.append("The customer VAT number is required for this VAT treatment.")
         }
+        // A self-billed invoice carries both numbers whatever the treatment —
+        // the supplier's is what makes it their invoice.
+        if kind == .selfBilling, to.taxID.trimmingCharacters(in: .whitespaces).isEmpty {
+            missing.append("A self-billed invoice must show the supplier's VAT number.")
+        }
         if kind == .creditNote, reference.trimmingCharacters(in: .whitespaces).isEmpty {
             missing.append("A credit note must reference the invoice it reverses.")
+        }
+        if kind == .debitNote, reference.trimmingCharacters(in: .whitespaces).isEmpty {
+            missing.append("A debit note must reference the document it adjusts.")
         }
         if vatLines.count > 1 { return missing }
 
@@ -312,7 +373,14 @@ public struct Invoice: Sendable {
         let top = pdf.cursor()
         let column = pdf.contentWidth() / 2
 
-        pdf.textAt("BILLED TO", x: pdf.left(), y: top, size: 7, font: .helveticaBold, color: branding.muted)
+        let heading: String
+        switch kind {
+        case .remittance: heading = "PAID TO"
+        case .selfBilling, .purchaseOrder: heading = "SUPPLIER"
+        case .deliveryNote: heading = "DELIVER TO"
+        default: heading = "BILLED TO"
+        }
+        pdf.textAt(heading, x: pdf.left(), y: top, size: 7, font: .helveticaBold, color: branding.muted)
         pdf.textAt(to.name, x: pdf.left(), y: top - 16, size: 11, font: .helveticaBold, color: branding.ink)
 
         var y = top - 29
@@ -351,6 +419,18 @@ public struct Invoice: Sendable {
 
     private func itemTable(_ pdf: Document) {
         guard !items.isEmpty else { return }
+
+        guard kind.showsMoney else {
+            let table = Table(headers: ["Description", "Qty"])
+            table.widths([0.85, 0.15]).align([1: .center]).rowHeight(22)
+            for item in items {
+                let description = item.note.isEmpty ? item.description : "\(item.description)   \(item.note)"
+                table.row([description, item.quantity])
+            }
+            table.draw(pdf, size: 9, headerFill: branding.wash)
+            return
+        }
+
         let hasUnit = items.contains { !$0.unitPrice.isEmpty }
 
         let headers = hasUnit
@@ -396,6 +476,16 @@ public struct Invoice: Sendable {
     }
 
     private func totalsBlock(_ pdf: Document) {
+        guard kind.showsMoney else {
+            if let standing = kind.standingNote {
+                pdf.gap(20)
+                pdf.cell(standing, x: pdf.left(), boxWidth: pdf.contentWidth(), size: 8.5,
+                         font: .helvetica, color: branding.muted)
+                pdf.gap(12)
+            }
+            return
+        }
+
         let width = pdf.contentWidth() * 0.42
         let x = pdf.right() - width
 
@@ -475,7 +565,13 @@ public struct Invoice: Sendable {
         pdf.line(from: pdf.left(), pdf.cursor() + 12, to: pdf.right(), pdf.cursor() + 12,
                  color: branding.hairline, thickness: 0.5)
         pdf.gap(6)
-        pdf.cell(kind == .quote ? "TERMS" : "PAYMENT", x: pdf.left(), boxWidth: 200, size: 7,
+        let notesHeading: String
+        switch kind {
+        case .quote: notesHeading = "TERMS"
+        case .remittance: notesHeading = "PAYMENT DETAILS"
+        default: notesHeading = "PAYMENT"
+        }
+        pdf.cell(notesHeading, x: pdf.left(), boxWidth: 200, size: 7,
                  font: .helveticaBold, color: branding.muted)
         pdf.gap(14)
 
