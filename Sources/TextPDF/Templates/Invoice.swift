@@ -451,8 +451,22 @@ public struct Invoice: Sendable {
         table.draw(pdf, size: 9, headerFill: branding.wash)
     }
 
+    /// Whether the per-rate breakdown earns its place on the page.
+    ///
+    /// It exists because §14 UStG and Article 226 require the taxable amount
+    /// shown against each rate when rates are *mixed*. With a single standard
+    /// rate it repeats the totals block verbatim — the same two figures, in a
+    /// column that lines up with nothing — so it is omitted.
+    ///
+    /// A non-standard treatment keeps it even at one rate: the row is what
+    /// evidences the zero rating.
+    var showsVatBreakdown: Bool {
+        guard !vatLines.isEmpty else { return false }
+        return vatLines.count > 1 || vat != .standard
+    }
+
     private func vatBreakdown(_ pdf: Document) {
-        guard !vatLines.isEmpty else { return }
+        guard showsVatBreakdown else { return }
 
         pdf.gap(18)
         pdf.breakIfNeeded(90)

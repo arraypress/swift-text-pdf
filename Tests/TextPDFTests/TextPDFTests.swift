@@ -326,6 +326,29 @@ final class TextPDFTests: XCTestCase {
         )
     }
 
+    func testSingleRateBreakdownIsOmittedAsRedundant() {
+        // One standard rate repeats the totals block verbatim — the same two
+        // figures, in a column that lines up with nothing.
+        func invoice(_ lines: [VatLine], vat: VatTreatment = .standard) -> Invoice {
+            Invoice(
+                branding: Branding(name: "T"), number: "INV-1",
+                from: Party(name: "S", address: ["1"], taxID: "GB1"),
+                to: Party(name: "B", address: ["2"], taxID: "GB2"),
+                items: [LineItem(description: "Thing", amount: "£10")],
+                totals: [("Subtotal", "£10")], vat: vat, vatLines: lines, supplyDate: "1 Aug"
+            )
+        }
+        let one = [VatLine(rate: "20%", net: "£10", vat: "£2")]
+        let two = one + [VatLine(rate: "5%", net: "£4", vat: "£0.20")]
+
+        XCTAssertFalse(invoice(one).showsVatBreakdown)
+        XCTAssertTrue(invoice(two).showsVatBreakdown, "mixed rates are the case the law requires")
+        XCTAssertTrue(
+            invoice(one, vat: .reverseCharge).showsVatBreakdown,
+            "the row is what evidences a zero rating"
+        )
+    }
+
     func testAQuoteIsNotHeldToTaxRules() {
         // Demanding a supply date on a quotation would be a false warning.
         let quote = Invoice(
