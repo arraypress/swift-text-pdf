@@ -4,13 +4,17 @@
 //
 //  Created by David Sherlock on 2026.
 //
-//  Who owes what, and for how long.
+//  Who owes what, or who you owe, and for how long.
 //
 //  An internal report rather than a document anyone is sent, which changes what
 //  it owes the reader. There is no branding to observe and no tone to strike;
 //  it exists to be read down a column and acted on, so the ageing buckets are
 //  fixed in position, the worst debt sorts to somewhere findable, and the
 //  totals row is the one thing that must never be wrong.
+//
+//  The two directions are the same report read from opposite ends — debtors
+//  before chasing, creditors before deciding what to pay this week — so they
+//  are one template with a heading that says which, rather than two that drift.
 //
 //  The buckets are given as labels rather than computed. Where a debt ages from
 //  is a policy decision — invoice date in some places, due date in others — and
@@ -19,6 +23,35 @@
 //
 
 import Foundation
+
+/// Which way the ledger runs.
+public enum AgedLedger: String, Sendable, Codable, CaseIterable {
+
+    /// Money owed to you.
+    case debtors
+
+    /// Money you owe.
+    case creditors
+
+    public var title: String {
+        switch self {
+        case .debtors: return "AGED DEBTORS"
+        case .creditors: return "AGED CREDITORS"
+        }
+    }
+
+    /// What the first column holds.
+    ///
+    /// A creditors report lists suppliers, and calling that column "Account"
+    /// leaves a reader working out which side of the ledger they are on from
+    /// the figures.
+    var accountHeading: String {
+        switch self {
+        case .debtors: return "Account"
+        case .creditors: return "Supplier"
+        }
+    }
+}
 
 /// One account's exposure, split by age.
 public struct DebtorRow: Sendable, Equatable, Codable {
@@ -55,10 +88,13 @@ public struct DebtorRow: Sendable, Equatable, Codable {
     }
 }
 
-/// An aged debtors report.
-public struct AgedDebtors: Sendable {
+/// An aged debtors or creditors report.
+public struct AgedAnalysis: Sendable {
 
     public let branding: Branding
+
+    /// Which way round the report runs.
+    public let kind: AgedLedger
 
     /// The date the ageing is calculated to.
     public let asAt: String
@@ -80,6 +116,7 @@ public struct AgedDebtors: Sendable {
 
     public init(
         branding: Branding,
+        kind: AgedLedger = .debtors,
         asAt: String,
         buckets: [String],
         rows: [DebtorRow],
@@ -90,6 +127,7 @@ public struct AgedDebtors: Sendable {
         orientation: Orientation = .landscape
     ) {
         self.branding = branding
+        self.kind = kind
         self.asAt = asAt
         self.buckets = buckets
         self.rows = rows
@@ -111,14 +149,14 @@ public struct AgedDebtors: Sendable {
         let pdf = Document(size: size, orientation: orientation, margin: 48, fontSize: 9, leading: 12.5)
         pdf.embeddedFont = font
 
-        Layout.masthead(pdf, branding: branding, title: "AGED DEBTORS", reference: "As at \(asAt)")
+        Layout.masthead(pdf, branding: branding, title: kind.title, reference: "As at \(asAt)")
         Layout.band(pdf, branding: branding, heading: "", cells: highlights)
 
         pdf.gap(highlights.isEmpty ? 0 : 8)
         debtorTable(pdf)
 
         Layout.notes(pdf, branding: branding, text: notes)
-        Layout.footer(pdf, branding: branding, caption: "\(branding.name) — aged debtors as at \(asAt)")
+        Layout.footer(pdf, branding: branding, caption: "\(branding.name) — \(kind.title.lowercased()) as at \(asAt)")
 
         return pdf
     }
@@ -126,16 +164,16 @@ public struct AgedDebtors: Sendable {
     @discardableResult
     public func save(to url: URL) throws -> Int {
         try render().save(to: url, metadata: [
-            "Title": "Aged debtors — \(asAt)",
+            "Title": "\(kind.title.capitalized) — \(asAt)",
             "Author": branding.name,
-            "Subject": "Aged debtors as at \(asAt)",
+            "Subject": "\(kind.title.capitalized) as at \(asAt)",
         ])
     }
 
     // MARK: Sections
 
     private func debtorTable(_ pdf: Document) {
-        let headers = ["Account"] + buckets + ["Total"]
+        let headers = [kind.accountHeading] + buckets + ["Total"]
 
         // The account column takes what is left after the figures, which are
         // all the same width so the eye can compare down and across.
@@ -173,3 +211,7 @@ public struct AgedDebtors: Sendable {
         table.draw(pdf, size: 8.5, headerFill: branding.wash)
     }
 }
+
+/// The previous name for `AgedAnalysis`, when it only ran one way.
+@available(*, deprecated, renamed: "AgedAnalysis")
+public typealias AgedDebtors = AgedAnalysis

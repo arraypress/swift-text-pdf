@@ -27,7 +27,7 @@ This writes the PDF directly. It covers what a business document actually needs 
 - 📊 **Tables** — proportional columns, alignment, striping, measured truncation
 - ✒️ **Vector logos** — an SVG `path` becomes PDF path operators, sharp at any zoom, a few hundred bytes
 - 🧾 **Twelve invoice kinds** — invoice, credit note, debit note, quote, proforma, receipt, reminder, remittance advice, self-billed invoice, delivery note, purchase order, order confirmation
-- 📚 **Six document types** — invoice, statement of account, timesheet, royalty statement, aged debtors report, and the pair that cross a border
+- 📚 **Six document types** — invoice, statement of account, timesheet, royalty statement, aged debtors or creditors, and the pair that cross a border
 - 🇪🇺 **VAT-aware** — reverse charge, intra-community supply, export and small-business wording, in English and German
 - ✅ **Compliance checks** — the §14 UStG / Article 226 particulars, verified before you send
 - 🔒 **Injection-safe** — customer names cannot escape the content stream
@@ -43,7 +43,7 @@ Six types, because these are genuinely different documents rather than one docum
 | `Statement` | an account over a period: charges, payments, running balance, aged analysis |
 | `Timesheet` | time worked, by day and project — the evidence behind an invoice, and signed by someone else |
 | `RoyaltyStatement` | what a contributor earned, and what is actually payable after recoupment |
-| `AgedDebtors` | who owes what, and for how long — internal, not sent |
+| `AgedAnalysis` | who owes what, or who you owe — internal, not sent |
 | `Consignment` | a commercial invoice or a packing list, for goods crossing a border |
 
 ### Invoice kinds

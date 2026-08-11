@@ -159,7 +159,7 @@ final class TemplateTests: XCTestCase {
     // MARK: Aged debtors
 
     func testShortDebtorRowIsPaddedRatherThanShiftingColumns() {
-        let report = AgedDebtors(
+        let report = AgedAnalysis(
             branding: brand,
             asAt: "31 July 2026",
             buckets: ["Current", "31–60", "61–90", "90+"],
@@ -174,7 +174,7 @@ final class TemplateTests: XCTestCase {
     }
 
     func testOverlongDebtorRowIsCutToTheBuckets() {
-        let report = AgedDebtors(
+        let report = AgedAnalysis(
             branding: brand,
             asAt: "31 July 2026",
             buckets: ["Current", "90+"],
@@ -182,6 +182,31 @@ final class TemplateTests: XCTestCase {
         )
         let rendered = text(of: report.render())
         XCTAssertFalse(rendered.contains("(\u{A3}4.00) Tj"), "a figure with no column should not be drawn")
+    }
+
+    func testCreditorsIsTheSameReportRunTheOtherWay() {
+        let owed = AgedAnalysis(
+            branding: brand, kind: .creditors, asAt: "31 July 2026",
+            buckets: ["Current", "90+"],
+            rows: [DebtorRow(account: "Kestrel Audio", amounts: ["£500.00", ""], total: "£500.00")]
+        )
+        let rendered = text(of: owed.render())
+
+        XCTAssertTrue(rendered.contains("(AGED CREDITORS) Tj"))
+        // A creditors report lists suppliers; calling the column "Account"
+        // leaves the reader working out which side of the ledger it is.
+        XCTAssertTrue(rendered.contains("(Supplier) Tj"))
+        XCTAssertFalse(rendered.contains("(AGED DEBTORS) Tj"))
+    }
+
+    func testDebtorsRemainsTheDefault() {
+        let owing = AgedAnalysis(
+            branding: brand, asAt: "31 July 2026", buckets: ["Current"],
+            rows: [DebtorRow(account: "Northwind", amounts: ["£1.00"], total: "£1.00")]
+        )
+        let rendered = text(of: owing.render())
+        XCTAssertTrue(rendered.contains("(AGED DEBTORS) Tj"))
+        XCTAssertTrue(rendered.contains("(Account) Tj"))
     }
 
     // MARK: Consignments
@@ -303,7 +328,7 @@ final class TemplateTests: XCTestCase {
                       entries: [TimeEntry(date: "1", description: "x", hours: "1")]).render(),
             RoyaltyStatement(branding: brand, payee: Party(name: "B"), period: "July",
                              lines: [RoyaltyLine(source: "S", title: "T", net: "£1", earned: "£1")]).render(),
-            AgedDebtors(branding: brand, asAt: "31 July", buckets: ["Current"],
+            AgedAnalysis(branding: brand, asAt: "31 July", buckets: ["Current"],
                         rows: [DebtorRow(account: "C", amounts: ["£1"], total: "£1")]).render(),
             Consignment(branding: brand, number: "1", exporter: Party(name: "D"),
                         consignee: Party(name: "E"), items: [ConsignmentItem(description: "F")]).render(),
