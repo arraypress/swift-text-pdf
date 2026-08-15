@@ -21,14 +21,14 @@ endobj
 <</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>>>> /Contents 8 0 R>>
 endobj
 8 0 obj
-<</Length 5064>>
+<</Length 5082>>
 stream
 q
 0.122 0.227 0.373 rg
 BT
 /F2 15.00 Tf
 48.00 779.89 Td
-(SUGARCART LTD) Tj
+(SWIFTINVOICES LTD) Tj
 ET
 Q
 q
@@ -36,7 +36,7 @@ q
 BT
 /F1 8.00 Tf
 48.00 766.89 Td
-(Sample libraries and sound design) Tj
+(Business documents, generated) Tj
 ET
 Q
 q
@@ -99,7 +99,7 @@ q
 BT
 /F1 8.50 Tf
 48.00 651.89 Td
-(mira@okafor.audio) Tj
+(mira@okafor.dev) Tj
 ET
 Q
 q
@@ -154,8 +154,8 @@ q
 0.125 0.125 0.125 rg
 BT
 /F2 8.50 Tf
-377.70 662.89 Td
-(Publishing agreement dated 4 March 2024) Tj
+388.07 662.89 Td
+(Reseller agreement dated 4 March 2024) Tj
 ET
 Q
 q
@@ -245,14 +245,14 @@ q
 BT
 /F1 8.50 Tf
 48.00 596.34 Td
-(Streaming) Tj
+(Subscriptions) Tj
 ET
 Q
 q
 BT
 /F1 8.50 Tf
 127.97 596.34 Td
-(Nightshift EP) Tj
+(Ledger Toolkit) Tj
 ET
 Q
 q
@@ -301,14 +301,14 @@ q
 BT
 /F1 8.50 Tf
 48.00 579.34 Td
-(Sync) Tj
+(Enterprise) Tj
 ET
 Q
 q
 BT
 /F1 8.50 Tf
 127.97 579.34 Td
-(Nightshift \(instrumental\)) Tj
+(Ledger Toolkit — enterprise) Tj
 ET
 Q
 q
@@ -350,14 +350,14 @@ q
 BT
 /F1 8.50 Tf
 48.00 562.34 Td
-(Downloads) Tj
+(One-off) Tj
 ET
 Q
 q
 BT
 /F1 8.50 Tf
 127.97 562.34 Td
-(Nightshift EP) Tj
+(Ledger Toolkit) Tj
 ET
 Q
 q
@@ -419,8 +419,8 @@ q
 0.451 0.451 0.451 rg
 BT
 /F1 7.50 Tf
-114.12 518.89 Td
-(Streaming) Tj
+108.71 518.89 Td
+(Subscriptions) Tj
 ET
 Q
 q
@@ -435,8 +435,8 @@ q
 0.451 0.451 0.451 rg
 BT
 /F1 7.50 Tf
-289.30 518.89 Td
-(Sync) Tj
+280.55 518.89 Td
+(Enterprise) Tj
 ET
 Q
 q
@@ -451,8 +451,8 @@ q
 0.451 0.451 0.451 rg
 BT
 /F1 7.50 Tf
-445.52 518.89 Td
-(Downloads) Tj
+451.56 518.89 Td
+(One-off) Tj
 ET
 Q
 q
@@ -563,7 +563,7 @@ q
 BT
 /F1 7.50 Tf
 48.00 46.00 Td
-(Sugarcart Ltd is registered in England and Wales, no. 09182736.) Tj
+(SwiftInvoices Ltd is registered in England and Wales, no. 09182736.) Tj
 ET
 Q
 q
@@ -591,5 +591,5 @@ xref
 trailer
 <</Size 9 /Root 1 0 R /Info 6 0 R>>
 startxref
-8529
+8547
 %%EOF

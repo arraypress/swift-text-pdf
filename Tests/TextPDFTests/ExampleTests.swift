@@ -56,40 +56,40 @@ final class ExampleTests: XCTestCase {
     // MARK: The parties
 
     private static let branding = Branding(
-        name: "Sugarcart Ltd",
-        tagline: "Sample libraries and sound design",
+        name: "SwiftInvoices Ltd",
+        tagline: "Business documents, generated",
         accent: "#1F3A5F",
         address: ["71–75 Shelton Street", "London WC2H 9JQ", "United Kingdom"],
-        footnotes: ["Sugarcart Ltd is registered in England and Wales, no. 09182736."]
+        footnotes: ["SwiftInvoices Ltd is registered in England and Wales, no. 09182736."]
     )
 
     private static let supplier = Party(
-        name: "Sugarcart Ltd",
+        name: "SwiftInvoices Ltd",
         address: ["71–75 Shelton Street", "London WC2H 9JQ"],
-        email: "accounts@sugarcart.co.uk",
+        email: "accounts@swiftinvoices.co.uk",
         taxID: "GB 123 4567 89"
     )
 
     private static let customer = Party(
-        name: "Acme Recordings Ltd",
+        name: "Acme Trading Ltd",
         address: ["Studio 4, 118 Brick Lane", "London E1 6RL"],
-        email: "payables@acmerecordings.com",
+        email: "payables@acmetrading.co.uk",
         taxID: "GB 987 6543 21"
     )
 
     private static let germanCustomer = Party(
-        name: "Klangwerk Studios GmbH",
+        name: "Klangwerk GmbH",
         address: ["Oranienburger Strasse 87", "10178 Berlin", "Deutschland"],
         email: "buchhaltung@klangwerk.de",
         taxID: "DE 811 5678 90"
     )
 
     private static let items = [
-        LineItem(description: "Drum Kit Vol. 2 — sample library licence",
+        LineItem(description: "Document generation licence — annual",
                  amount: "£149.00", quantity: "1", unitPrice: "£149.00"),
-        LineItem(description: "Bespoke foley session", amount: "£420.00",
-                 quantity: "6", unitPrice: "£70.00", note: "Studio B, 12–13 July"),
-        LineItem(description: "Stem delivery and mastering", amount: "£180.00",
+        LineItem(description: "Template design and setup", amount: "£420.00",
+                 quantity: "6", unitPrice: "£70.00", note: "Six hours, 12–13 July"),
+        LineItem(description: "Priority support — first year", amount: "£180.00",
                  quantity: "1", unitPrice: "£180.00"),
     ]
 
@@ -136,9 +136,9 @@ final class ExampleTests: XCTestCase {
         let treatments: [(String, VatTreatment, Party)] = [
             ("reverse-charge", .reverseCharge, Self.germanCustomer),
             ("intra-community", .intraCommunitySupply, Self.germanCustomer),
-            ("export", .export, Party(name: "Northwind Audio Inc.",
+            ("export", .export, Party(name: "Northwind Systems Inc.",
                                       address: ["1200 Market Street", "San Francisco, CA 94103", "USA"],
-                                      email: "ap@northwindaudio.com")),
+                                      email: "ap@northwindsystems.com")),
             ("small-business", .smallBusiness, Self.customer),
         ]
 
@@ -200,18 +200,18 @@ final class ExampleTests: XCTestCase {
             period: "1 – 15 July 2026",
             reference: "TS-2026-14",
             entries: [
-                TimeEntry(date: "1 Jul", project: "Foley", description: "Session prep and mic setup",
+                TimeEntry(date: "1 Jul", project: "Integration", description: "Requirements and environment setup",
                           hours: "3.5", rate: "£70.00", amount: "£245.00"),
-                TimeEntry(date: "2 Jul", project: "Foley", description: "Recording, studio B",
+                TimeEntry(date: "2 Jul", project: "Integration", description: "Implementation, on site",
                           hours: "8.0", rate: "£70.00", amount: "£560.00"),
-                TimeEntry(date: "5 Jul", project: "Mastering", description: "Stem cleanup",
+                TimeEntry(date: "5 Jul", project: "Migration", description: "Data migration and checks",
                           hours: "4.0", rate: "£85.00", amount: "£340.00"),
-                TimeEntry(date: "8 Jul", project: "Admin", description: "Delivery call",
+                TimeEntry(date: "8 Jul", project: "Admin", description: "Handover call",
                           hours: "0.5", nonBillable: true),
             ],
-            byProject: [("Foley", "£805.00"), ("Mastering", "£340.00")],
+            byProject: [("Integration", "£805.00"), ("Migration", "£340.00")],
             totals: [("Billable hours", "15.5"), ("Total", "£1,145.00")],
-            signatories: ["Alex Moreau", "For Acme Recordings Ltd"]
+            signatories: ["Alex Moreau", "For Acme Trading Ltd"]
         )
         try put(timesheet.render(), "statements/timesheet.pdf")
     }
@@ -220,21 +220,21 @@ final class ExampleTests: XCTestCase {
         let royalty = RoyaltyStatement(
             branding: Self.branding,
             payee: Party(name: "Mira Okafor", address: ["44 Bath Road", "Bristol BS3 3PB"],
-                         email: "mira@okafor.audio"),
+                         email: "mira@okafor.dev"),
             period: "Q2 2026",
             reference: "ROY-2026-Q2",
-            agreement: "Publishing agreement dated 4 March 2024",
+            agreement: "Reseller agreement dated 4 March 2024",
             lines: [
-                RoyaltyLine(source: "Streaming", title: "Nightshift EP", quantity: "1,204,882",
+                RoyaltyLine(source: "Subscriptions", title: "Ledger Toolkit", quantity: "1,204,882",
                             gross: "£4,812.00", distributorShare: "£1,443.60",
                             net: "£3,368.40", rate: "15%", earned: "£505.26"),
-                RoyaltyLine(source: "Sync", title: "Nightshift (instrumental)", quantity: "2",
+                RoyaltyLine(source: "Enterprise", title: "Ledger Toolkit — enterprise", quantity: "2",
                             gross: "£6,000.00", net: "£6,000.00", rate: "50%", earned: "£3,000.00"),
-                RoyaltyLine(source: "Downloads", title: "Nightshift EP", quantity: "318",
+                RoyaltyLine(source: "One-off", title: "Ledger Toolkit", quantity: "318",
                             gross: "£2,226.00", distributorShare: "£667.80",
                             net: "£1,558.20", rate: "15%", earned: "£233.73"),
             ],
-            bySource: [("Streaming", "£505.26"), ("Sync", "£3,000.00"), ("Downloads", "£233.73")],
+            bySource: [("Subscriptions", "£505.26"), ("Enterprise", "£3,000.00"), ("One-off", "£233.73")],
             reconciliation: [("Earned this period", "£3,738.99"),
                              ("Unrecouped advance brought forward", "-£2,500.00")],
             payable: [("Payable", "£1,238.99")],
@@ -251,11 +251,11 @@ final class ExampleTests: XCTestCase {
                 asAt: "31 July 2026",
                 buckets: ["Current", "31–60", "61–90", "90+"],
                 rows: [
-                    DebtorRow(account: "Acme Recordings Ltd", reference: "ACME",
+                    DebtorRow(account: "Acme Trading Ltd", reference: "ACME",
                               amounts: ["£898.80", "£0.00", "£0.00", "£0.00"], total: "£898.80"),
-                    DebtorRow(account: "Klangwerk Studios GmbH", reference: "KLANG",
+                    DebtorRow(account: "Klangwerk GmbH", reference: "KLANG",
                               amounts: ["£0.00", "£1,420.00", "£0.00", "£0.00"], total: "£1,420.00"),
-                    DebtorRow(account: "Northwind Audio Inc.", reference: "NWA",
+                    DebtorRow(account: "Northwind Systems Inc.", reference: "NWA",
                               amounts: ["£0.00", "£0.00", "£0.00", "£2,310.00"],
                               total: "£2,310.00", flagged: true),
                 ],
@@ -275,16 +275,16 @@ final class ExampleTests: XCTestCase {
                 number: "EXP-2026-0117",
                 date: "31 July 2026",
                 exporter: Self.supplier,
-                consignee: Party(name: "Northwind Audio Inc.",
+                consignee: Party(name: "Northwind Systems Inc.",
                                  address: ["1200 Market Street", "San Francisco, CA 94103", "USA"],
-                                 email: "receiving@northwindaudio.com"),
+                                 email: "receiving@northwindsystems.com"),
                 details: [("Airway bill", "125-44718820"), ("Carrier", "DHL Express")],
                 items: [
-                    ConsignmentItem(description: "Studio monitor pair", commodityCode: "8518 22 00",
+                    ConsignmentItem(description: "Rack server, 1U", commodityCode: "8471 50 00",
                                     countryOfOrigin: "GB", quantity: "2", netWeight: "18.4 kg",
                                     grossWeight: "21.0 kg", unitPrice: "£980.00",
                                     amount: "£1,960.00", package: "1 of 2"),
-                    ConsignmentItem(description: "Microphone, condenser", commodityCode: "8518 10 30",
+                    ConsignmentItem(description: "Network switch, 24-port", commodityCode: "8517 62 00",
                                     countryOfOrigin: "GB", quantity: "4", netWeight: "2.1 kg",
                                     grossWeight: "3.4 kg", unitPrice: "£310.00",
                                     amount: "£1,240.00", package: "2 of 2"),
@@ -305,9 +305,9 @@ final class ExampleTests: XCTestCase {
 
     func testTheSameInvoiceUnderDifferentBranding() throws {
         let looks: [(String, Branding)] = [
-            ("plain", Branding(name: "Sugarcart Ltd", address: Self.branding.address)),
+            ("plain", Branding(name: "SwiftInvoices Ltd", address: Self.branding.address)),
             ("navy", Self.branding),
-            ("warm", Branding(name: "Sugarcart Ltd", tagline: "Sample libraries and sound design",
+            ("warm", Branding(name: "SwiftInvoices Ltd", tagline: "Business documents, generated",
                               accent: "#7A4A2B", address: Self.branding.address)),
         ]
 
