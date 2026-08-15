@@ -1,96 +1,41 @@
 # Swift Text PDF
 
-A PDF writer with no package dependencies. Invoices, credit notes, quotes and receipts — tables, vector logos, embedded typefaces, images, multi-page flow and VAT-compliant wording.
+A PDF writer with no package dependencies. Text flow, tables, vector paths, embedded typefaces, images and multi-page layout — the page, not what goes on it.
 
 ```swift
-let invoice = Invoice(
-    branding: branding,
-    number: "INV-2026-0042",
-    from: seller,
-    to: buyer,
-    items: items,
-    totals: [("Subtotal", "£856.00"), ("VAT at 20%", "£154.08")],
-    total: [("Total due", "£924.48")]
+let pdf = Document(size: .a4, margin: 48)
+
+pdf.text("Statement of account", size: 18, face: .bold)
+pdf.gap(12)
+pdf.table(
+    columns: [.init(title: "Description", width: 3), .init(title: "Amount", width: 1, align: .right)],
+    rows: [["Consultancy, July", "£1,240.00"], ["Expenses", "£86.40"]]
 )
-try invoice.save(to: url)     // 7 KB
+pdf.rule()
+
+try pdf.render().write(to: url)     // 3 KB
 ```
 
 ## Why
 
-Generating an invoice usually means shelling out to a browser engine, pulling in a rendering library and its dependency tree, or paying an API to render a document that never leaves your own server.
+Generating a PDF usually means shelling out to a browser engine, pulling in a rendering library and its dependency tree, or paying an API to render a document that never leaves your own server.
 
 This writes the PDF directly. It covers what a document actually needs — text flow, tables, rules, curves, a vector logo, an embedded typeface, an image, page breaks — and nothing else. No HTML engine, no rendering library, no service, and nothing outside the system frameworks.
+
+**Business documents live next door.** Invoices, statements, timesheets, royalty statements, aged analyses and customs paperwork — with their VAT wording and compliance checks — are [swift-invoice-pdf](https://github.com/arraypress/swift-invoice-pdf), which is built on this. Résumés and CVs are [swift-resume-pdf](https://github.com/arraypress/swift-resume-pdf). This package is the framework both of them draw on.
 
 ## Features
 
 - 📄 **Real multi-page flow** — content breaks across pages, headers repeat, footers know the final page count
 - 📊 **Tables** — proportional columns, alignment, striping, measured truncation
 - ✒️ **Vector logos** — an SVG `path` becomes PDF path operators, sharp at any zoom, a few hundred bytes
-- 🧾 **Twelve invoice kinds** — invoice, credit note, debit note, quote, proforma, receipt, reminder, remittance advice, self-billed invoice, delivery note, purchase order, order confirmation
-- 📚 **Six document types** — invoice, statement of account, timesheet, royalty statement, aged debtors or creditors, and the pair that cross a border
-- 🇪🇺 **VAT-aware** — reverse charge, intra-community supply, export and small-business wording, in English and German
-- ✅ **Compliance checks** — the §14 UStG / Article 226 particulars, verified before you send
-- 🔒 **Injection-safe** — customer names cannot escape the content stream
-- ✒️ **Real typography** — set the documents in a brand family; metrics come from the face, and only the glyphs used are carried
+- 🔒 **Injection-safe** — a customer's name cannot escape the content stream
+- ✒️ **Real typography** — embed a family, with metrics from the face and only the glyphs used carried
 - ⭕ **Curves** — circles, rings, arcs, rounded rectangles and meters, built from Béziers rather than approximated
 - 📷 **JPEG and PNG** — JPEG passed through undecoded, PNG decoded and re-deflated with transparency intact
 - ⬌ **Justified text** — set word by word, so it works with an embedded family too
 - 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
 - 🪶 **No package dependencies** — Foundation and the system's own frameworks, nothing from SwiftPM
-
-## Documents
-
-Six types, because these are genuinely different documents rather than one document with the words changed.
-
-| Type | For |
-|---|---|
-| `Invoice` | billing, in twelve kinds — see below |
-| `Statement` | an account over a period: charges, payments, running balance, aged analysis |
-| `Timesheet` | time worked, by day and project — the evidence behind an invoice, and signed by someone else |
-| `RoyaltyStatement` | what a contributor earned, and what is actually payable after recoupment |
-| `AgedAnalysis` | who owes what, or who you owe — internal, not sent |
-| `Consignment` | a commercial invoice or a packing list, for goods crossing a border |
-
-### Invoice kinds
-
-| Kind | For |
-|---|---|
-| `invoice` | the tax invoice |
-| `creditNote` | reversing one — you cannot amend an invoice, so a refund cites it |
-| `debitNote` | charging more against an earlier invoice |
-| `quote` | pre-sale, no VAT due |
-| `proforma` | advance payment; not a tax invoice, and says so |
-| `receipt` | proof of payment |
-| `reminder` | chasing an overdue invoice |
-| `remittance` | telling a supplier what you have just paid, and against what |
-| `selfBilling` | the buyer raising the invoice, by prior agreement |
-| `deliveryNote` | what was sent, with no prices |
-| `purchaseOrder` | ordering |
-| `orderConfirmation` | acknowledging an order |
-
-### Royalty statements
-
-Earnings and payment are not the same number, and a statement showing only one of them is why royalty statements have the reputation they do. The template lays out the whole chain — what the distributor sold, what it kept, what reached you, the contributor's split — and then the reconciliation from opening unrecouped balance to what is payable now.
-
-Where nothing is payable, `carriedForwardNote` prints the reason on the document. A statement with earnings and no payment reads as a withholding unless it says otherwise, and that explanation should not live in a covering email.
-
-### Crossing a border
-
-`Consignment` produces a commercial invoice or a packing list. These carry fields a sales invoice has no notion of — a tariff heading and country of origin per line, the delivery term with its named place, net and gross weights — because a customs officer values the consignment from them.
-
-A packing list carries no prices at all. That is the difference between the two documents, not a formatting option: the list is read by people handling the boxes, and in some trades it reaches the buyer's customer.
-
-`complianceWarnings(verifying:)` checks the finished document rather than the data. That distinction matters on an invoice: a recipient's input-tax deduction turns on wording being *printed*, and a template that stopped drawing it would pass every check that only reads the invoice's fields.
-
-`complianceWarnings()` checks what the template can see: supplier tax number, both addresses, a sequential number, the date of supply, the customer VAT number where the treatment requires it, and — for a credit note — the invoice it reverses.
-
-`Consignment` has its own, covering the commodity code, origin and weight on every line, the delivery term and the reason for export.
-
-Not tax advice, and not exhaustive. Both verify that the particulars are present, not that they are right — no template can tell whether a commodity code is the correct heading for what is in the box.
-
-## Money is a string, deliberately
-
-Every amount is pre-formatted. Rendering money correctly means knowing the currency's decimal exponent, its thousands convention and its symbol placement, and a layout type has no business guessing at any of that. Format it where the money lives and pass the result.
 
 ## Setting a document in a typeface
 
@@ -149,22 +94,6 @@ pdf.block(prose, x: 56, width: 300, size: 10, align: .justified)
 Set a word at a time rather than with the `Tw` operator. Tw adds its space to byte 32, and under Identity-H — how every embedded font here is encoded — byte 32 is half of a two-byte character code, not a space. A document set in an embedded family would come out with gaps inside its words.
 
 The last line of a paragraph is left ragged. Stretching four words across a full measure is what makes justified text look like a ransom note.
-
-## A typeface of your own
-
-Business documents default to Helvetica because paperwork is better for being unremarkable — it prints on anything, photocopies, and is hard to date. Where a business has a face of its own, name it on the branding:
-
-```swift
-let branding = Branding(
-    name: "SwiftInvoices Ltd",
-    typeface: TypefaceFiles(name: "Söhne", regular: regularPath, bold: boldPath)
-)
-try Invoice(branding: branding, …).save(to: url)
-```
-
-Only the weights named exist; a template asking for bold in a profile with one file gets that file, so a business with a single face still gets its documents set in it.
-
-A brand face drawn for a logo commonly has no `£` or `€`. Those runs fall back to Helvetica and appear correctly — but in a different face, and on a total that is the one figure nobody should have to look at twice. Anything the family could not draw is listed in `document.fallbacks` after rendering, so it can be reported rather than found.
 
 ## Text beyond Latin-1
 
