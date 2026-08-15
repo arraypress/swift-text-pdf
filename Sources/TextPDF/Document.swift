@@ -40,6 +40,9 @@ public final class Document {
     /// Drawn on every page once the total is known.
     private var footer: ((Document, Int, Int) -> Void)?
 
+    /// Drawn on every page *before* its content.
+    private var background: ((Document, Int, Int) -> Void)?
+
     /// Text that could not be drawn as written, with the reason.
     ///
     /// Unrepresentable characters become `?`, which leaves a name looking
@@ -143,6 +146,18 @@ public final class Document {
     @discardableResult
     public func onEachPage(_ callback: @escaping (Document, Int, Int) -> Void) -> Document {
         footer = callback
+        return self
+    }
+
+    /// The same, drawn *behind* the page's content rather than on top of it.
+    ///
+    /// A running foot is text, and text over text is merely ugly. A panel is
+    /// a filled rectangle, and one of those drawn afterwards paints out
+    /// everything it covers — so a tinted column or a letterhead has to go
+    /// down first, and cannot until the page count is known.
+    @discardableResult
+    public func behindEachPage(_ callback: @escaping (Document, Int, Int) -> Void) -> Document {
+        background = callback
         return self
     }
 
@@ -536,9 +551,9 @@ public final class Document {
         return data.count
     }
 
-    /// Runs the footer callback once per page, now that the total is known.
+    /// Runs the per-page callbacks, now that the total is known.
     private func applyFooters(to streams: [String]) -> [String] {
-        guard let footer else { return streams }
+        guard footer != nil || background != nil else { return streams }
 
         let total = streams.count
         let savedStream = current
@@ -547,8 +562,15 @@ public final class Document {
         var stamped: [String] = []
         for (index, stream) in streams.enumerated() {
             current = ""
-            footer(self, index + 1, total)
-            stamped.append(stream + current)
+            y = pageHeight - margin
+            background?(self, index + 1, total)
+            let beneath = current
+
+            current = ""
+            y = pageHeight - margin
+            footer?(self, index + 1, total)
+
+            stamped.append(beneath + stream + current)
         }
 
         current = savedStream

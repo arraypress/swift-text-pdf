@@ -84,6 +84,10 @@ struct TrueTypeFont {
     /// Advance widths, in font units.
     private let advances: [Int]
 
+    /// Left side bearings, in font units. Signed: an italic glyph's ink
+    /// commonly starts left of its origin.
+    private let bearings: [Int]
+
     // MARK: Parsing
 
     init?(data: Data) {
@@ -143,21 +147,36 @@ struct TrueTypeFont {
         }
         loca = offsets
 
-        // hmtx holds numberOfHMetrics full entries, then the remaining glyphs
-        // share the last advance.
+        // hmtx holds numberOfHMetrics full entries of {advance, lsb}, then a
+        // bare lsb for each remaining glyph — those share the last advance but
+        // keep bearings of their own.
+        //
+        // The left side bearing is not decoration. A rasterizer positions an
+        // outline by it, and a glyph whose ink starts left of the origin — an
+        // italic f, or a component inside a composite — has a bearing that
+        // says so. Publishing zero for it shifts the glyph by exactly the
+        // amount that was thrown away.
         let metricCount = max(1, Int(data.u16(hhea.lowerBound + 34)))
         var widths: [Int] = []
+        var sideBearings: [Int] = []
         widths.reserveCapacity(glyphCount)
+        sideBearings.reserveCapacity(glyphCount)
+
         var last = 0
         for glyph in 0..<glyphCount {
             if glyph < metricCount {
                 let at = hmtx.lowerBound + glyph * 4
-                guard at + 2 <= data.count else { break }
+                guard at + 4 <= data.count else { break }
                 last = Int(data.u16(at))
+                sideBearings.append(Int(data.i16(at + 2)))
+            } else {
+                let at = hmtx.lowerBound + (metricCount * 4) + ((glyph - metricCount) * 2)
+                sideBearings.append(at + 2 <= data.count ? Int(data.i16(at)) : 0)
             }
             widths.append(last)
         }
         advances = widths
+        bearings = sideBearings
 
         metrics = Self.readMetrics(
             data: data, tables: found, head: head, hhea: hhea, unitsPerEm: unitsPerEm
@@ -262,6 +281,18 @@ struct TrueTypeFont {
         return data[data.startIndex + start ..< data.startIndex + end]
     }
 
+    /// The left side bearing of a glyph, in font units.
+    func bearing(_ glyph: Int) -> Int {
+        guard glyph >= 0, glyph < bearings.count else { return 0 }
+        return bearings[glyph]
+    }
+
+    /// Whether a glyph is built from references to other glyphs.
+    func isComposite(_ glyph: Int) -> Bool {
+        let bytes = glyphData(glyph)
+        return bytes.count >= 10 && Int16(bitPattern: bytes.u16(0)) < 0
+    }
+
     /// Glyphs referenced by a composite glyph, e.g. the `e` and the acute in `é`.
     ///
     /// Missing these leaves accented characters as bare marks, which is the
@@ -344,8 +375,9 @@ struct TrueTypeFont {
         var hmtxData = Data()
         for old in ordered {
             let raw = old < advances.count ? advances[old] : 0
+            let bearing = old < bearings.count ? bearings[old] : 0
             hmtxData.append(contentsOf: UInt16(clamping: raw).bigEndianBytes)
-            hmtxData.append(contentsOf: [0, 0])                     // left side bearing
+            hmtxData.append(contentsOf: UInt16(bitPattern: Int16(clamping: bearing)).bigEndianBytes)
         }
 
         var hheaData = Data(data[data.startIndex + hhea.lowerBound ..< data.startIndex + hhea.upperBound])
