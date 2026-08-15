@@ -87,6 +87,10 @@ public final class Document {
     private var facesInUse: [EmbeddedFont] = []
     private var faceIndex: [ObjectIdentifier: Int] = [:]
 
+    /// Images actually drawn, in first-use order.
+    private var imagesInUse: [EmbeddedImage] = []
+    private var imageIndex: [ObjectIdentifier: Int] = [:]
+
     public init(
         size: PageSize = .a4,
         orientation: Orientation = .portrait,
@@ -486,6 +490,164 @@ public final class Document {
         return self
     }
 
+    /// A rectangle with rounded corners.
+    ///
+    /// A radius of half the shorter side or more gives a pill, which is what a
+    /// heading tab or a keyword chip wants.
+    @discardableResult
+    public func roundedRect(
+        x: Double, y rectY: Double, width rectWidth: Double, height rectHeight: Double,
+        radius: Double, color: Color? = nil
+    ) -> Document {
+        fill(Bezier.roundedRect(x: x, y: rectY, width: rectWidth, height: rectHeight, radius: radius),
+             color: color ?? .grey(242))
+    }
+
+    /// A filled disc.
+    @discardableResult
+    public func circle(x: Double, y circleY: Double, radius: Double, color: Color? = nil) -> Document {
+        fill(Bezier.circle(x: x, y: circleY, radius: radius), color: color ?? .grey(242))
+    }
+
+    /// An unfilled ring.
+    ///
+    /// Stroked rather than filled as an annulus: one path instead of two, and
+    /// the thickness is then a line width the reader antialiases properly
+    /// rather than a gap between two curves that can moiré at small sizes.
+    @discardableResult
+    public func ring(
+        x: Double, y ringY: Double, radius: Double, thickness: Double = 2, color: Color? = nil
+    ) -> Document {
+        stroke(Bezier.circle(x: x, y: ringY, radius: radius),
+               color: color ?? .grey(214), thickness: thickness)
+    }
+
+    /// Part of a ring, for a dial.
+    ///
+    /// Angles are in degrees clockwise from twelve o'clock, which is how
+    /// somebody describes a dial out loud and not how trigonometry numbers it.
+    @discardableResult
+    public func arc(
+        x: Double, y arcY: Double, radius: Double,
+        from startDegrees: Double, to endDegrees: Double,
+        thickness: Double = 2, color: Color? = nil, rounded: Bool = true
+    ) -> Document {
+        func radians(_ degrees: Double) -> Double { (90 - degrees) * .pi / 180 }
+
+        let path = Bezier.arc(
+            x: x, y: arcY, radius: radius,
+            start: radians(startDegrees), end: radians(endDegrees)
+        )
+        guard !path.isEmpty else { return self }
+        return stroke(path, color: color ?? .grey(120), thickness: thickness, roundCaps: rounded)
+    }
+
+    /// A horizontal bar with rounded ends, filled to `fraction`.
+    ///
+    /// The track is always drawn, because a bar at ten per cent and a bar that
+    /// failed to render are otherwise the same picture.
+    @discardableResult
+    public func meter(
+        x: Double, y meterY: Double, width meterWidth: Double, height meterHeight: Double,
+        fraction: Double, color: Color? = nil, track: Color? = nil
+    ) -> Document {
+        let radius = meterHeight / 2
+        roundedRect(x: x, y: meterY, width: meterWidth, height: meterHeight,
+                    radius: radius, color: track ?? .grey(232))
+
+        let filled = min(max(fraction, 0), 1) * meterWidth
+        guard filled > 0.5 else { return self }
+
+        return roundedRect(x: x, y: meterY, width: max(filled, meterHeight),
+                           height: meterHeight, radius: radius, color: color ?? .grey(60))
+    }
+
+    // MARK: Images
+
+    /// Draws an image into a box.
+    ///
+    /// The box is filled exactly as given; nothing is scaled to fit, because a
+    /// photograph squashed to a square that was meant to be a rectangle is a
+    /// worse outcome than one that overhangs where somebody can see it.
+    /// ``EmbeddedImage/aspectRatio`` is there to size the box first.
+    @discardableResult
+    public func image(
+        _ picture: EmbeddedImage,
+        x: Double, y imageY: Double,
+        width imageWidth: Double, height imageHeight: Double
+    ) -> Document {
+        guard imageWidth > 0, imageHeight > 0 else { return self }
+        current += "q\n" + placement(imageWidth, imageHeight, x, imageY)
+            + "/\(resourceName(for: picture)) Do\nQ\n"
+        return self
+    }
+
+    /// The same, clipped to a circle — how a portrait appears on almost every
+    /// document that carries one.
+    @discardableResult
+    public func circularImage(
+        _ picture: EmbeddedImage, x: Double, y imageY: Double, diameter: Double
+    ) -> Document {
+        guard diameter > 0 else { return self }
+
+        let radius = diameter / 2
+        // The image is drawn to cover the circle rather than fit inside it, so
+        // a portrait that is not square is cropped rather than letterboxed
+        // into a circle with slivers of nothing at the edges.
+        let ratio = picture.aspectRatio
+        let drawnWidth = ratio >= 1 ? diameter * ratio : diameter
+        let drawnHeight = ratio >= 1 ? diameter : diameter / ratio
+
+        current += "q\n"
+        current += Bezier.circle(x: x + radius, y: imageY + radius, radius: radius)
+        current += "W n\n"
+        current += placement(
+            drawnWidth, drawnHeight,
+            x - (drawnWidth - diameter) / 2,
+            imageY - (drawnHeight - diameter) / 2
+        )
+        current += "/\(resourceName(for: picture)) Do\nQ\n"
+        return self
+    }
+
+    /// The matrix that maps the unit square an image is drawn in onto a box.
+    private func placement(_ width: Double, _ height: Double, _ x: Double, _ y: Double) -> String {
+        String(format: "%.3F 0 0 %.3F %.3F %.3F cm\n",
+               PDFEncoding.number(width), PDFEncoding.number(height),
+               PDFEncoding.number(x), PDFEncoding.number(y))
+    }
+
+    private func resourceName(for picture: EmbeddedImage) -> String {
+        let key = ObjectIdentifier(picture)
+        if let index = imageIndex[key] { return "Im\(index + 1)" }
+
+        let index = imagesInUse.count
+        imageIndex[key] = index
+        imagesInUse.append(picture)
+        return "Im\(index + 1)"
+    }
+
+    // MARK: Painting
+
+    /// Fills a path built elsewhere.
+    @discardableResult
+    func fill(_ path: String, color: Color) -> Document {
+        guard !path.isEmpty else { return self }
+        current += "q\n\(color.operands) rg\n\(path)f\nQ\n"
+        return self
+    }
+
+    /// Strokes a path built elsewhere.
+    @discardableResult
+    func stroke(_ path: String, color: Color, thickness: Double, roundCaps: Bool = false) -> Document {
+        guard !path.isEmpty else { return self }
+        current += "q\n\(color.operands) RG\n"
+        current += String(format: "%.2F w\n", PDFEncoding.number(thickness))
+        if roundCaps { current += "1 J\n" }
+        current += "\(path)S\nQ\n"
+        return self
+    }
+
     /// Draws an SVG `path` d-attribute as PDF path operators.
     @discardableResult
     public func svgPath(
@@ -494,18 +656,27 @@ public final class Document {
         y pathY: Double,
         scale: Double = 1,
         color: Color? = nil,
-        svgHeight: Double = 100
+        svgHeight: Double = 100,
+        strokeWidth: Double? = nil
     ) -> Document {
         let operators = SVGPath.toPDF(pathData, scale: scale, svgHeight: svgHeight)
         guard !operators.isEmpty else { return self }
 
         let ink = color ?? .black()
-        current += String(
-            format: "q\n%@ rg\n1 0 0 1 %.2F %.2F cm\n%@f\nQ\n",
-            ink.operands,
-            PDFEncoding.number(x), PDFEncoding.number(pathY),
-            operators
-        )
+        let placement = String(format: "1 0 0 1 %.2F %.2F cm\n",
+                               PDFEncoding.number(x), PDFEncoding.number(pathY))
+
+        // Stroked when a width is given. Icon sets come in both kinds and a
+        // stroke-only path filled instead comes out as a blob — the outline
+        // was never meant to enclose anything.
+        guard let strokeWidth else {
+            current += "q\n\(ink.operands) rg\n\(placement)\(operators)f\nQ\n"
+            return self
+        }
+
+        current += "q\n\(ink.operands) RG\n"
+        current += String(format: "%.2F w\n1 J\n1 j\n", PDFEncoding.number(strokeWidth))
+        current += "\(placement)\(operators)S\nQ\n"
         return self
     }
 
@@ -527,7 +698,8 @@ public final class Document {
             height: pageHeight,
             metadata: metadata,
             creationDate: creationDate,
-            embedded: embeddedFaces
+            embedded: embeddedFaces,
+            images: embeddedImages
         )
     }
 
@@ -541,6 +713,11 @@ public final class Document {
     /// that fails to open.
     private var embeddedFaces: [(name: String, font: EmbeddedFont)] {
         facesInUse.enumerated().map { (name: "F\(4 + $0.offset)", font: $0.element) }
+    }
+
+    /// The images actually drawn, under the names the streams refer to.
+    private var embeddedImages: [(name: String, image: EmbeddedImage)] {
+        imagesInUse.enumerated().map { (name: "Im\($0.offset + 1)", image: $0.element) }
     }
 
     /// Writes the PDF to a file, returning the byte count.

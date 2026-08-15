@@ -34,7 +34,8 @@ enum Writer {
         height: Double,
         metadata: [String: String],
         creationDate: Date,
-        embedded: [(name: String, font: EmbeddedFont)] = []
+        embedded: [(name: String, font: EmbeddedFont)] = [],
+        images: [(name: String, image: EmbeddedImage)] = []
     ) -> Data {
         let streams = pages.isEmpty ? [""] : pages
 
@@ -43,10 +44,11 @@ enum Writer {
         var pageRefs: [String] = []
 
         // 1 Catalog, 2 Pages, 3–5 base fonts, 6 Info, then five objects per
-        // embedded face, then page/content pairs.
+        // embedded face, one per image, then page/content pairs.
         let objectsPerFace = 5
         let firstFace = 7
-        let firstPage = firstFace + (embedded.count * objectsPerFace)
+        let firstImage = firstFace + (embedded.count * objectsPerFace)
+        let firstPage = firstImage + images.count
 
         // The resource names come from the caller, which assigned them as the
         // content streams were written. A face whose subset cannot be built
@@ -60,13 +62,26 @@ enum Writer {
             addEmbedded(face.font, parts: parts, at: first, into: &objects, binaries: &binaries)
         }
 
+        var imageResources = ""
+        for (index, picture) in images.enumerated() {
+            let object = firstImage + index
+            let (dictionary, bytes) = picture.image.xobject()
+
+            imageResources += " /\(picture.name) \(object) 0 R"
+            objects[object] = "\(dictionary)\nstream\n\u{0}STREAM\u{0}\nendstream"
+            binaries[object] = bytes
+        }
+
+        var resources = "/Font <<\(fontResources)>>"
+        if !imageResources.isEmpty { resources += " /XObject <<\(imageResources.dropFirst())>>" }
+
         for (index, stream) in streams.enumerated() {
             let pageObject = firstPage + (index * 2)
             let contentObject = pageObject + 1
             pageRefs.append("\(pageObject) 0 R")
 
             objects[pageObject] = "<</Type /Page /Parent 2 0 R "
-                + "/Resources <</Font <<\(fontResources)>>>> "
+                + "/Resources <<\(resources)>> "
                 + "/Contents \(contentObject) 0 R>>"
 
             // One byte per scalar, because the stream is Latin-1 by then.

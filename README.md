@@ -32,6 +32,8 @@ This writes the PDF directly. It covers what a business document actually needs 
 - ✅ **Compliance checks** — the §14 UStG / Article 226 particulars, verified before you send
 - 🔒 **Injection-safe** — customer names cannot escape the content stream
 - ✒️ **Real typography** — embed a family in several weights and italic; metrics come from the face, and only the glyphs used are carried
+- ⭕ **Curves** — circles, rings, arcs, rounded rectangles and meters, built from Béziers rather than approximated
+- 📷 **JPEG images** — passed through undecoded under `/DCTDecode`, with a circular clip for portraits
 - 🪶 **Zero dependencies**
 
 ## Documents
@@ -118,6 +120,19 @@ Vertical metrics are read from each face rather than assumed at a fixed ratio.
 Inter's cap height is 727 units where EB Garamond's is 662, and centring both
 on one number leaves one riding high and the other sitting low in the same
 band.
+
+## Pictures
+
+JPEG only, and passed straight through:
+
+```swift
+let portrait = try EmbeddedImage.load(url)
+pdf.circularImage(portrait, x: 48, y: 700, diameter: 96)
+```
+
+A PDF takes JPEG bytes without decoding them — that is what `/DCTDecode` is — so image support costs about a hundred lines rather than a codec. PNG would mean inflating the file, un-filtering the scanlines and re-deflating the result, which is a zlib implementation and a great deal of surface area for a writer whose selling point is having no dependencies. Converting first is one command.
+
+Progressive JPEGs and CMYK are refused with the reason rather than embedded: both would produce a file that opens and shows nothing.
 
 ## Text beyond Latin-1
 
