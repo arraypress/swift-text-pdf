@@ -221,6 +221,11 @@ enum Archival {
     /// same. Derived from the content rather than randomly, so writing the
     /// same document twice produces the same bytes — which is what makes a
     /// committed example diffable.
+    ///
+    /// The seed has to be built from sorted keys. It was interpolated from
+    /// the metadata dictionary directly, and Swift randomises a dictionary's
+    /// order per process — so the identifier that exists to say "this is the
+    /// same document" changed every time the same document was written.
     static func identifier(_ seed: String) -> String {
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
         for byte in seed.utf8 {

@@ -248,7 +248,9 @@ enum Writer {
         return serialise(objects, upTo: last, binaries: binaries,
                          version: standard == .none ? "1.4" : "1.7",
                          identifier: Archival.identifier(
-                             "\(metadata)\(creationDate.timeIntervalSince1970)\(streams.count)"),
+                             metadata.keys.sorted().map { "\($0)=\(metadata[$0] ?? "")" }
+                                 .joined(separator: "|")
+                                 + "\(creationDate.timeIntervalSince1970)\(streams.count)"),
                          encrypt: encryptObject)
     }
 

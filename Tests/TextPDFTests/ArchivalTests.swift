@@ -266,3 +266,31 @@ extension ArchivalTests {
         XCTAssertTrue(try raw(data).contains("pdfaid:part"))
     }
 }
+
+extension ArchivalTests {
+
+    func testTheIdentifierIsTheSameForTheSameDocument() throws {
+        // It was not: the seed was interpolated from the metadata dictionary,
+        // and Swift randomises dictionary order per process, so the entry
+        // whose whole job is to say "this is the same document" said the
+        // opposite on every run.
+        func identifier(of data: Data) throws -> String {
+            let raw = try XCTUnwrap(String(data: data, encoding: .isoLatin1))
+            let start = try XCTUnwrap(raw.range(of: "/ID [<"))
+            let end = try XCTUnwrap(raw.range(of: ">", range: start.upperBound..<raw.endIndex))
+            return String(raw[start.upperBound..<end.lowerBound])
+        }
+
+        let metadata = ["Title": "INV-1", "Author": "Me", "Subject": "S", "Keywords": "k"]
+        let stamped = Date(timeIntervalSince1970: 1_776_000_000)
+
+        func build() -> Data {
+            let pdf = Document()
+            pdf.text("Body")
+            return pdf.render(metadata: metadata, creationDate: stamped)
+        }
+
+        XCTAssertEqual(try identifier(of: build()), try identifier(of: build()))
+        XCTAssertEqual(build(), build(), "the same document produced different bytes")
+    }
+}
