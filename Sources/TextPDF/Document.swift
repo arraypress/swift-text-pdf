@@ -245,12 +245,14 @@ public final class Document {
         font: Font = .helvetica,
         color: Color? = nil,
         align: Align = .left,
-        face: EmbeddedFont? = nil
+        face: EmbeddedFont? = nil,
+        tracking: Double = 0
     ) -> Document {
         let pointSize = size ?? fontSize
         return textAt(
             text, x: x, y: y - ascender(text, font: font, size: pointSize, face: face),
-            size: pointSize, font: font, color: color, align: align, boxWidth: boxWidth, face: face
+            size: pointSize, font: font, color: color, align: align, boxWidth: boxWidth,
+            face: face, tracking: tracking
         )
     }
 
@@ -290,7 +292,8 @@ public final class Document {
         color: Color? = nil,
         align: Align = .left,
         boxWidth: Double = 0,
-        face: EmbeddedFont? = nil
+        face: EmbeddedFont? = nil,
+        tracking: Double = 0
     ) -> Document {
         guard !text.isEmpty else { return self }
 
@@ -300,7 +303,8 @@ public final class Document {
         // needs.
         if let resolved = resolveFace(font: font, face: face, for: text) {
             return embeddedText(text, x: x, baseline: baseline, size: size,
-                                color: color, align: align, boxWidth: boxWidth, using: resolved)
+                                color: color, align: align, boxWidth: boxWidth,
+                                tracking: tracking, using: resolved)
         }
         if PDFEncoding.needsEmbedding(text) { record(text) }
 
@@ -310,7 +314,7 @@ public final class Document {
         // Alignment is computed from the measured width — the reason the font
         // metrics exist at all.
         if align != .left, boxWidth > 0 {
-            let measured = font.widthOf(text, size: size)
+            let measured = font.widthOf(text, size: size) + Self.trackingWidth(text, tracking)
             originX += align == .right ? boxWidth - measured : (boxWidth - measured) / 2
         }
 
@@ -318,8 +322,13 @@ public final class Document {
         current += "q\n"
         if !ink.isBlack { current += ink.operands + " rg\n" }
 
+        // Tc is text state, and text state is part of the graphics state, so
+        // the enclosing q/Q keeps it from leaking into the next run.
+        current += "BT\n"
+        if tracking != 0 { current += String(format: "%.3F Tc\n", PDFEncoding.number(tracking)) }
+
         current += String(
-            format: "BT\n/%@ %.2F Tf\n%.2F %.2F Td\n(%@) Tj\nET\nQ\n",
+            format: "/%@ %.2F Tf\n%.2F %.2F Td\n(%@) Tj\nET\nQ\n",
             font.resourceName,
             PDFEncoding.number(size),
             PDFEncoding.number(originX),
@@ -327,6 +336,17 @@ public final class Document {
             escaped
         )
         return self
+    }
+
+    /// The width letter-spacing adds to a run.
+    ///
+    /// The gap follows every glyph, including the last, but that trailing one
+    /// is empty space at the end of the line — counting it would leave
+    /// right-aligned text sitting a gap short of the margin, visibly out
+    /// against anything above or below it.
+    static func trackingWidth(_ text: String, _ tracking: Double) -> Double {
+        guard tracking != 0 else { return 0 }
+        return tracking * Double(max(0, text.unicodeScalars.count - 1))
     }
 
     /// Notes text that will come out as question marks.
@@ -339,11 +359,13 @@ public final class Document {
     /// Draws text as glyph IDs under Identity-H.
     private func embeddedText(
         _ text: String, x: Double, baseline: Double, size: Double,
-        color: Color?, align: Align, boxWidth: Double, using embedded: EmbeddedFont
+        color: Color?, align: Align, boxWidth: Double, tracking: Double,
+        using embedded: EmbeddedFont
     ) -> Document {
-        let (hex, measured) = embedded.encode(text, size: size)
+        let (hex, width) = embedded.encode(text, size: size)
         guard !hex.isEmpty else { return self }
 
+        let measured = width + Self.trackingWidth(text, tracking)
         var originX = x
         if align != .left, boxWidth > 0 {
             originX += align == .right ? boxWidth - measured : (boxWidth - measured) / 2
@@ -353,8 +375,11 @@ public final class Document {
         current += "q\n"
         if !ink.isBlack { current += ink.operands + " rg\n" }
 
+        current += "BT\n"
+        if tracking != 0 { current += String(format: "%.3F Tc\n", PDFEncoding.number(tracking)) }
+
         current += String(
-            format: "BT\n/%@ %.2F Tf\n%.2F %.2F Td\n<%@> Tj\nET\nQ\n",
+            format: "/%@ %.2F Tf\n%.2F %.2F Td\n<%@> Tj\nET\nQ\n",
             resourceName(for: embedded),
             PDFEncoding.number(size),
             PDFEncoding.number(originX),
@@ -591,6 +616,50 @@ public final class Document {
                 : wrap(paragraph, font: font, size: pointSize, width: width, face: face).count)
         }
         return Double(count) * step
+    }
+
+    // MARK: Measuring
+
+    /// The width of text as *this* document would draw it.
+    ///
+    /// Public because a layout cannot be written without it. `Font.widthOf`
+    /// answers for a base-14 font, which is the wrong answer as soon as a
+    /// family is attached — and a caller sizing a panel from it would be
+    /// measuring a typeface the page is not set in.
+    public func width(
+        of text: String,
+        size: Double,
+        font: Font = .helvetica,
+        face: EmbeddedFont? = nil,
+        tracking: Double = 0
+    ) -> Double {
+        measured(text, font: font, size: size, face: face) + Self.trackingWidth(text, tracking)
+    }
+
+    /// `text` shortened with an ellipsis to fit `width`.
+    public func fit(
+        _ text: String,
+        into width: Double,
+        size: Double,
+        font: Font = .helvetica,
+        face: EmbeddedFont? = nil
+    ) -> String {
+        truncate(text, font: font, size: size, width: width, face: face)
+    }
+
+    /// `text` broken into lines that fit `width`.
+    ///
+    /// For deciding how much room a block will need before committing to
+    /// where it goes — the two-column designs use it to work out which column
+    /// runs longer.
+    public func lines(
+        of text: String,
+        width: Double,
+        size: Double,
+        font: Font = .helvetica,
+        face: EmbeddedFont? = nil
+    ) -> [String] {
+        wrap(text, font: font, size: size, width: width, face: face)
     }
 
     /// `text` shortened to fit `width`, measured as it will be drawn.

@@ -8,7 +8,7 @@
 import Foundation
 
 /// Paper size, in PostScript points.
-public enum PageSize: String, Sendable, CaseIterable {
+public enum PageSize: String, Sendable, CaseIterable, Codable {
     case a4 = "A4"
     case a5 = "A5"
     case letter = "Letter"
@@ -26,13 +26,13 @@ public enum PageSize: String, Sendable, CaseIterable {
 }
 
 /// Which way round the page is.
-public enum Orientation: String, Sendable, CaseIterable {
+public enum Orientation: String, Sendable, CaseIterable, Codable {
     case portrait
     case landscape
 }
 
 /// Horizontal alignment within a box.
-public enum Align: String, Sendable, CaseIterable {
+public enum Align: String, Sendable, CaseIterable, Codable {
     case left
     case center
     case right
