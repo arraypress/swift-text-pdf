@@ -28,7 +28,7 @@ final class BrandTypefaceTests: XCTestCase {
         Invoice(
             branding: branding,
             number: "INV-2026-0042",
-            from: Party(name: "Sugarcart Ltd", address: ["71-75 Shelton Street"],
+            from: Party(name: "SwiftInvoices Ltd", address: ["71-75 Shelton Street"],
                         email: "billing@sugarcart.example", taxID: "GB123456789"),
             to: Party(name: "Acme Recordings Ltd", address: ["Studio 4, 118 Brick Lane"],
                       email: "ap@acme.example"),
@@ -47,7 +47,7 @@ final class BrandTypefaceTests: XCTestCase {
 
     func testABrandTypefaceSetsTheDocument() throws {
         let files = try brandFiles()
-        let branded = invoice(branding: Branding(name: "Sugarcart Ltd", typeface: files))
+        let branded = invoice(branding: Branding(name: "SwiftInvoices Ltd", typeface: files))
 
         let rendered = try raw(branded.render().render())
         XCTAssertTrue(rendered.contains("/FontFile2"), "the brand face was not embedded")
@@ -55,7 +55,7 @@ final class BrandTypefaceTests: XCTestCase {
     }
 
     func testWithoutOneTheDocumentStaysInHelvetica() throws {
-        let plain = invoice(branding: Branding(name: "Sugarcart Ltd"))
+        let plain = invoice(branding: Branding(name: "SwiftInvoices Ltd"))
         let rendered = try raw(plain.render().render())
 
         XCTAssertFalse(rendered.contains("/FontFile2"), "nothing should have been embedded")
@@ -64,7 +64,7 @@ final class BrandTypefaceTests: XCTestCase {
 
     func testAFamilyPassedInWinsOverTheProfile() throws {
         let files = try brandFiles()
-        let branded = invoice(branding: Branding(name: "Sugarcart Ltd", typeface: files))
+        let branded = invoice(branding: Branding(name: "SwiftInvoices Ltd", typeface: files))
 
         // Rendering with an explicit family is how a caller overrides a stored
         // profile for one document.
@@ -79,7 +79,7 @@ final class BrandTypefaceTests: XCTestCase {
 
         // render(embedding:) meant "use this where Windows-1252 falls short",
         // and documents written against it must keep doing exactly that.
-        let plain = invoice(branding: Branding(name: "Sugarcart Ltd"))
+        let plain = invoice(branding: Branding(name: "SwiftInvoices Ltd"))
         let font = try EmbeddedFont.load(URL(fileURLWithPath: regular))
 
         let rendered = try raw(plain.render(embedding: font).render())
@@ -128,7 +128,7 @@ final class BrandTypefaceTests: XCTestCase {
     // MARK: Links and language
 
     func testTheCustomerEmailIsClickable() throws {
-        let branded = invoice(branding: Branding(name: "Sugarcart Ltd"))
+        let branded = invoice(branding: Branding(name: "SwiftInvoices Ltd"))
         let document = try XCTUnwrap(PDFDocument(data: branded.render().render()))
         let page = try XCTUnwrap(document.page(at: 0))
 
@@ -138,7 +138,7 @@ final class BrandTypefaceTests: XCTestCase {
 
     func testAGermanInvoiceSaysSo() throws {
         let german = Invoice(
-            branding: Branding(name: "Sugarcart Ltd"),
+            branding: Branding(name: "SwiftInvoices Ltd"),
             number: "INV-1",
             from: Party(name: "A", taxID: "DE1"),
             to: Party(name: "B", address: ["Berlin"], taxID: "DE2"),
@@ -149,7 +149,7 @@ final class BrandTypefaceTests: XCTestCase {
         )
         XCTAssertTrue(try raw(german.render().render()).contains("/Lang (de)"))
 
-        let english = invoice(branding: Branding(name: "Sugarcart Ltd"))
+        let english = invoice(branding: Branding(name: "SwiftInvoices Ltd"))
         XCTAssertTrue(try raw(english.render().render()).contains("/Lang (en)"))
     }
 
@@ -172,7 +172,7 @@ final class BrandTypefaceTests: XCTestCase {
     }
 
     func testBrandingSurvivesJSON() throws {
-        let branding = Branding(name: "Sugarcart Ltd", accent: "#1F3A5F",
+        let branding = Branding(name: "SwiftInvoices Ltd", accent: "#1F3A5F",
                                 typeface: TypefaceFiles(name: "Arial", regular: regular))
         let decoded = try JSONDecoder().decode(Branding.self, from: JSONEncoder().encode(branding))
 
@@ -187,9 +187,9 @@ extension BrandTypefaceTests {
 
     private func reverseCharge() -> Invoice {
         Invoice(
-            branding: Branding(name: "Sugarcart Ltd"),
+            branding: Branding(name: "SwiftInvoices Ltd"),
             number: "INV-2026-0042",
-            from: Party(name: "Sugarcart Ltd", address: ["London"], taxID: "GB123456789"),
+            from: Party(name: "SwiftInvoices Ltd", address: ["London"], taxID: "GB123456789"),
             to: Party(name: "Klangwerk GmbH", address: ["Berlin"], taxID: "DE811567890"),
             items: [LineItem(description: "Sound design", amount: "€1,200.00")],
             total: [(label: "Total due", value: "€1,200.00")],

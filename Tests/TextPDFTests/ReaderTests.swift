@@ -58,10 +58,10 @@ final class ReaderTests: XCTestCase {
         let pdf = Document()
         pdf.text("body")
 
-        let opened = try open(pdf.render(metadata: ["Title": "INVOICE INV-1", "Author": "Sugarcart Ltd"]))
+        let opened = try open(pdf.render(metadata: ["Title": "INVOICE INV-1", "Author": "SwiftInvoices Ltd"]))
         let attributes = try XCTUnwrap(opened.documentAttributes)
         XCTAssertEqual(attributes[PDFDocumentAttribute.titleAttribute] as? String, "INVOICE INV-1")
-        XCTAssertEqual(attributes[PDFDocumentAttribute.authorAttribute] as? String, "Sugarcart Ltd")
+        XCTAssertEqual(attributes[PDFDocumentAttribute.authorAttribute] as? String, "SwiftInvoices Ltd")
     }
 
     func testCurrencyAndPunctuationComeBackIntact() throws {
@@ -216,9 +216,9 @@ final class ReaderTests: XCTestCase {
 
     func testARenderedInvoiceOpensAndReads() throws {
         let invoice = Invoice(
-            branding: Branding(name: "Sugarcart Ltd", address: ["71-75 Shelton Street", "London WC2H 9JQ"]),
+            branding: Branding(name: "SwiftInvoices Ltd", address: ["71-75 Shelton Street", "London WC2H 9JQ"]),
             number: "INV-2026-0042",
-            from: Party(name: "Sugarcart Ltd", address: ["71-75 Shelton Street"], taxID: "GB123456789"),
+            from: Party(name: "SwiftInvoices Ltd", address: ["71-75 Shelton Street"], taxID: "GB123456789"),
             to: Party(name: "Acme Recordings Ltd", address: ["Studio 4, 118 Brick Lane"]),
             items: [LineItem(description: "Drum Kit Vol. 2", amount: "£149.00", unitPrice: "£149.00")],
             totals: [(label: "Subtotal", value: "£149.00")],
