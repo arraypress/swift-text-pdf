@@ -156,7 +156,7 @@ Business documents default to Helvetica because paperwork is better for being un
 
 ```swift
 let branding = Branding(
-    name: "Sugarcart Ltd",
+    name: "SwiftInvoices Ltd",
     typeface: TypefaceFiles(name: "Söhne", regular: regularPath, bold: boldPath)
 )
 try Invoice(branding: branding, …).save(to: url)
