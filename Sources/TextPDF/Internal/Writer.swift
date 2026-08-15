@@ -35,7 +35,9 @@ enum Writer {
         metadata: [String: String],
         creationDate: Date,
         embedded: [(name: String, font: EmbeddedFont)] = [],
-        images: [(name: String, image: EmbeddedImage)] = []
+        images: [(name: String, image: EmbeddedImage)] = [],
+        annotations: [Int: [String]] = [:],
+        language: String = ""
     ) -> Data {
         let streams = pages.isEmpty ? [""] : pages
 
@@ -80,8 +82,17 @@ enum Writer {
             let contentObject = pageObject + 1
             pageRefs.append("\(pageObject) 0 R")
 
+            // Link areas are written straight into the array rather than as
+            // objects of their own. The specification allows a direct
+            // dictionary there, and numbering a dozen annotations would mean
+            // renumbering every page after them.
+            var annots = ""
+            if let links = annotations[index], !links.isEmpty {
+                annots = " /Annots [\(links.joined(separator: " "))]"
+            }
+
             objects[pageObject] = "<</Type /Page /Parent 2 0 R "
-                + "/Resources <<\(resources)>> "
+                + "/Resources <<\(resources)>>\(annots) "
                 + "/Contents \(contentObject) 0 R>>"
 
             // One byte per scalar, because the stream is Latin-1 by then.
@@ -89,7 +100,10 @@ enum Writer {
             objects[contentObject] = "<</Length \(length)>>\nstream\n\(stream)\nendstream"
         }
 
-        objects[1] = "<</Type /Catalog /Pages 2 0 R>>"
+        let tag = language.trimmingCharacters(in: .whitespacesAndNewlines)
+        objects[1] = "<</Type /Catalog /Pages 2 0 R"
+            + (tag.isEmpty ? "" : " /Lang (\(PDFEncoding.escape(tag)))")
+            + ">>"
         objects[2] = "<</Type /Pages /Kids [\(pageRefs.joined(separator: " "))] /Count \(streams.count)"
             + String(format: " /MediaBox [0 0 %.2F %.2F]>>", width, height)
         objects[3] = baseFont(.helvetica)

@@ -34,6 +34,7 @@ This writes the PDF directly. It covers what a business document actually needs 
 - ✒️ **Real typography** — embed a family in several weights and italic; metrics come from the face, and only the glyphs used are carried
 - ⭕ **Curves** — circles, rings, arcs, rounded rectangles and meters, built from Béziers rather than approximated
 - 📷 **JPEG images** — passed through undecoded under `/DCTDecode`, with a circular clip for portraits
+- 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
 - 🪶 **Zero dependencies**
 
 ## Documents

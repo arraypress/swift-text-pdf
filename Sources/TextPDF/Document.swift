@@ -91,6 +91,24 @@ public final class Document {
     private var imagesInUse: [EmbeddedImage] = []
     private var imageIndex: [ObjectIdentifier: Int] = [:]
 
+    /// Link areas, by page index.
+    private var annotations: [Int: [String]] = [:]
+
+    /// The document's language, as a BCP 47 tag — "en-GB", "de".
+    ///
+    /// Read by screen readers to choose a pronunciation, and by the reflow
+    /// that assistive software applies to a page. Omitted when empty rather
+    /// than guessed at: a document declared as English and written in German
+    /// is read aloud worse than one that declines to say.
+    public var language: String = ""
+
+    /// Which page the per-page callbacks are drawing, while they run.
+    ///
+    /// A footer registering a link would otherwise attach it to whatever page
+    /// happened to be last, because by then the document is finished and the
+    /// "current" page is not a meaningful idea.
+    private var stampingPage: Int?
+
     public init(
         size: PageSize = .a4,
         orientation: Orientation = .portrait,
@@ -580,6 +598,60 @@ public final class Document {
                            height: meterHeight, radius: radius, color: color ?? .grey(60))
     }
 
+    // MARK: Links
+
+    /// Makes a rectangle of the page a link.
+    ///
+    /// A URL printed on a document is read from a screen far more often than
+    /// from paper, and one that cannot be clicked is a string somebody has to
+    /// retype. The annotation is invisible — the visible part is whatever text
+    /// was drawn there — so a link never changes how the page looks.
+    ///
+    /// No border, because a reader that draws one draws it in a colour nobody
+    /// chose, and a blue box around an email address is the mark of a document
+    /// somebody assembled rather than set.
+    @discardableResult
+    public func link(
+        _ url: String,
+        x: Double, y linkY: Double,
+        width linkWidth: Double, height linkHeight: Double
+    ) -> Document {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, linkWidth > 0, linkHeight > 0 else { return self }
+
+        let page = stampingPage ?? pages.count
+        let annotation = String(
+            format: "<</Type /Annot /Subtype /Link /Rect [%.2F %.2F %.2F %.2F] "
+                + "/Border [0 0 0] /F 4 /A <</Type /Action /S /URI /URI (%@)>>>>",
+            PDFEncoding.number(x), PDFEncoding.number(linkY),
+            PDFEncoding.number(x + linkWidth), PDFEncoding.number(linkY + linkHeight),
+            PDFEncoding.escape(trimmed)
+        )
+        annotations[page, default: []].append(annotation)
+        return self
+    }
+
+    /// Draws text and makes it a link, sized to the text.
+    @discardableResult
+    public func linked(
+        _ text: String,
+        url: String,
+        x: Double,
+        y baseline: Double,
+        size: Double,
+        font: Font = .helvetica,
+        color: Color? = nil,
+        face: EmbeddedFont? = nil,
+        tracking: Double = 0
+    ) -> Document {
+        textAt(text, x: x, y: baseline, size: size, font: font,
+               color: color, face: face, tracking: tracking)
+
+        let measured = width(of: text, size: size, font: font, face: face, tracking: tracking)
+        let descent = (face?.descender(size) ?? size * 0.22)
+        return link(url, x: x, y: baseline - descent, width: measured, height: size)
+    }
+
     // MARK: Images
 
     /// Draws an image into a box.
@@ -717,7 +789,9 @@ public final class Document {
             metadata: metadata,
             creationDate: creationDate,
             embedded: embeddedFaces,
-            images: embeddedImages
+            images: embeddedImages,
+            annotations: annotations,
+            language: language
         )
     }
 
@@ -756,6 +830,8 @@ public final class Document {
 
         var stamped: [String] = []
         for (index, stream) in streams.enumerated() {
+            stampingPage = index
+
             current = ""
             y = pageHeight - margin
             background?(self, index + 1, total)
@@ -768,6 +844,7 @@ public final class Document {
             stamped.append(beneath + stream + current)
         }
 
+        stampingPage = nil
         current = savedStream
         y = savedY
         return stamped
