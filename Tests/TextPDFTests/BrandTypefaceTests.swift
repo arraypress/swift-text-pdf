@@ -180,3 +180,76 @@ final class BrandTypefaceTests: XCTestCase {
         XCTAssertEqual(decoded.typeface?.regular, regular)
     }
 }
+
+// MARK: - Compliance against the page rather than the data
+
+extension BrandTypefaceTests {
+
+    private func reverseCharge() -> Invoice {
+        Invoice(
+            branding: Branding(name: "Sugarcart Ltd"),
+            number: "INV-2026-0042",
+            from: Party(name: "Sugarcart Ltd", address: ["London"], taxID: "GB123456789"),
+            to: Party(name: "Klangwerk GmbH", address: ["Berlin"], taxID: "DE811567890"),
+            items: [LineItem(description: "Sound design", amount: "€1,200.00")],
+            total: [(label: "Total due", value: "€1,200.00")],
+            vat: .reverseCharge,
+            supplyDate: "31 July 2026"
+        )
+    }
+
+    func testACompliantInvoiceVerifiesAgainstItsOwnPage() throws {
+        let invoice = reverseCharge()
+        let document = invoice.render()
+
+        XCTAssertTrue(invoice.complianceWarnings().isEmpty, "\(invoice.complianceWarnings())")
+        XCTAssertTrue(
+            invoice.complianceWarnings(verifying: document).isEmpty,
+            "\(invoice.complianceWarnings(verifying: document))"
+        )
+    }
+
+    func testWordingThatNeverReachedThePageIsCaught() throws {
+        // The gap this closes: the data says reverse charge, so the data check
+        // passes — but only the page decides whether the recipient can rely on
+        // the document. A blank document has the same fields and none of the
+        // words.
+        let invoice = reverseCharge()
+        let blank = Document()
+
+        let missing = invoice.complianceWarnings(verifying: blank)
+        XCTAssertFalse(missing.isEmpty)
+        XCTAssertTrue(missing.contains { $0.contains("did not reach the page") },
+                      "\(missing)")
+        XCTAssertTrue(missing.contains { $0.contains("Article 196") }, "\(missing)")
+    }
+
+    func testTheTotalIsCheckedAgainstThePage() throws {
+        let invoice = reverseCharge()
+        let blank = Document()
+        XCTAssertTrue(
+            invoice.complianceWarnings(verifying: blank).contains { $0.contains("€1,200.00") }
+        )
+    }
+
+    func testTheDataCheckIsUnchanged() {
+        // The older call still answers the older question, so nothing that
+        // depends on it changes behaviour.
+        let incomplete = Invoice(
+            branding: Branding(name: "A"),
+            number: "",
+            from: Party(name: "A"),
+            to: Party(name: "B"),
+            items: []
+        )
+        XCTAssertFalse(incomplete.complianceWarnings().isEmpty)
+    }
+
+    func testDrawnTextRecordsWhatWasDrawn() {
+        let pdf = Document()
+        pdf.text("Total due")
+        pdf.textAt("£178.80", x: 50, y: 50, size: 10)
+
+        XCTAssertEqual(pdf.drawnText, ["Total due", "£178.80"])
+    }
+}

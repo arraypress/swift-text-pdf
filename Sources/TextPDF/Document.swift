@@ -43,6 +43,14 @@ public final class Document {
     /// Drawn on every page *before* its content.
     private var background: ((Document, Int, Int) -> Void)?
 
+    /// Every run of text drawn, in the order it was drawn.
+    ///
+    /// Kept so a template's own checks can ask what actually reached the page
+    /// rather than what was in the data. Those are different questions, and on
+    /// a document whose validity depends on specific wording appearing, only
+    /// the second one is worth answering.
+    public private(set) var drawnText: [String] = []
+
     /// Text a family was attached for and did not draw.
     ///
     /// Not a failure — the run falls back to a base-14 font and appears
@@ -344,6 +352,7 @@ public final class Document {
         wordSpacing: Double = 0
     ) -> Document {
         guard !text.isEmpty else { return self }
+        drawnText.append(text)
 
         // An embedded face draws the run when one applies — a named face, the
         // document's family, or the fallback for text Windows-1252 cannot

@@ -80,6 +80,8 @@ Where nothing is payable, `carriedForwardNote` prints the reason on the document
 
 A packing list carries no prices at all. That is the difference between the two documents, not a formatting option: the list is read by people handling the boxes, and in some trades it reaches the buyer's customer.
 
+`complianceWarnings(verifying:)` checks the finished document rather than the data. That distinction matters on an invoice: a recipient's input-tax deduction turns on wording being *printed*, and a template that stopped drawing it would pass every check that only reads the invoice's fields.
+
 `complianceWarnings()` checks what the template can see: supplier tax number, both addresses, a sequential number, the date of supply, the customer VAT number where the treatment requires it, and — for a credit note — the invoice it reverses.
 
 `Consignment` has its own, covering the commodity code, origin and weight on every line, the delivery term and the reason for export.

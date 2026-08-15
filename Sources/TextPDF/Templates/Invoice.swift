@@ -258,6 +258,39 @@ public struct Invoice: Sendable {
         return missing
     }
 
+    /// Mandatory particulars missing from a document that was actually drawn.
+    ///
+    /// ``complianceWarnings()`` inspects the data: it can tell you a reverse
+    /// charge was declared, not that the words reached the page. This asks the
+    /// finished document, which is the question that matters — a recipient's
+    /// input-tax deduction turns on wording being *printed*, and a template
+    /// that stopped drawing it would pass every check that only reads the
+    /// invoice's fields.
+    ///
+    /// Still not tax advice. It verifies the particulars are present on the
+    /// page, not that the treatment chosen was the right one.
+    public func complianceWarnings(verifying document: Document) -> [String] {
+        var missing = complianceWarnings()
+
+        let page = document.drawnText.joined(separator: " ")
+
+        // The wording that makes the document valid for the recipient.
+        for note in vat.notes(german: germanNotes) where !page.contains(note) {
+            missing.append("The wording \"\(note)\" is required and did not reach the page.")
+        }
+
+        if kind.isTaxDocument, !number.isEmpty, !page.contains(number) {
+            missing.append("The document number did not reach the page.")
+        }
+        if kind.isTaxDocument, !supplyDate.isEmpty, !page.contains(supplyDate) {
+            missing.append("The date of supply did not reach the page.")
+        }
+        for line in total where !page.contains(line.value) {
+            missing.append("The total \"\(line.value)\" did not reach the page.")
+        }
+        return missing
+    }
+
     // MARK: Rendering
 
     /// Lays the document out.
