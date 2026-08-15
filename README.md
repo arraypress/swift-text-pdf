@@ -33,7 +33,8 @@ This writes the PDF directly. It covers what a business document actually needs 
 - 🔒 **Injection-safe** — customer names cannot escape the content stream
 - ✒️ **Real typography** — set the documents in a brand family; metrics come from the face, and only the glyphs used are carried
 - ⭕ **Curves** — circles, rings, arcs, rounded rectangles and meters, built from Béziers rather than approximated
-- 📷 **JPEG images** — passed through undecoded under `/DCTDecode`, with a circular clip for portraits
+- 📷 **JPEG and PNG** — JPEG passed through undecoded, PNG decoded and re-deflated with transparency intact
+- ⬌ **Justified text** — set word by word, so it works with an embedded family too
 - 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
 - 🪶 **Zero dependencies**
 
@@ -124,16 +125,28 @@ band.
 
 ## Pictures
 
-JPEG only, and passed straight through:
+JPEG and PNG:
 
 ```swift
 let portrait = try EmbeddedImage.load(url)
 pdf.circularImage(portrait, x: 48, y: 700, diameter: 96)
 ```
 
-A PDF takes JPEG bytes without decoding them — that is what `/DCTDecode` is — so image support costs about a hundred lines rather than a codec. PNG would mean inflating the file, un-filtering the scanlines and re-deflating the result, which is a zlib implementation and a great deal of surface area for a writer whose selling point is having no dependencies. Converting first is one command.
+A PDF takes JPEG bytes without decoding them — that is what `/DCTDecode` is — so a JPEG is passed through byte for byte.
+
+PNG cannot be: its zlib runs over filtered scanlines and PDF's `/FlateDecode` runs over raw ones, so the pixels are read out and deflated again. Lossless both ways. The system supplies both halves, so this remains free of any package dependency. Transparency becomes a soft mask — PDF has no notion of an alpha channel inside an image, and a cut-out logo without one arrives on a black square.
 
 Progressive JPEGs and CMYK are refused with the reason rather than embedded: both would produce a file that opens and shows nothing.
+
+## Justified text
+
+```swift
+pdf.block(prose, x: 56, width: 300, size: 10, align: .justified)
+```
+
+Set a word at a time rather than with the `Tw` operator. Tw adds its space to byte 32, and under Identity-H — how every embedded font here is encoded — byte 32 is half of a two-byte character code, not a space. A document set in an embedded family would come out with gaps inside its words.
+
+The last line of a paragraph is left ragged. Stretching four words across a full measure is what makes justified text look like a ransom note.
 
 ## A typeface of your own
 

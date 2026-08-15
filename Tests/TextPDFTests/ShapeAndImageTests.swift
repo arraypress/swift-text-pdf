@@ -216,9 +216,11 @@ final class ShapeAndImageTests: XCTestCase {
 
     // MARK: Refusals
 
-    func testANonJPEGIsRefused() {
-        XCTAssertThrowsError(try EmbeddedImage.decode(Data([0x89, 0x50, 0x4E, 0x47]), named: "x.png")) { error in
-            XCTAssertEqual(error as? ImageError, .notJPEG("x.png"))
+    func testSomethingThatIsNeitherIsRefused() {
+        // Four bytes of a PNG signature is not a PNG, and is not a JPEG
+        // either — the format is named rather than guessed at.
+        XCTAssertThrowsError(try EmbeddedImage.decode(Data([0x89, 0x50, 0x4E, 0x47]), named: "x.gif")) { error in
+            XCTAssertEqual(error as? ImageError, .unsupportedFormat("x.gif"))
         }
     }
 

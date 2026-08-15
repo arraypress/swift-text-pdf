@@ -340,7 +340,8 @@ public final class Document {
         align: Align = .left,
         boxWidth: Double = 0,
         face: EmbeddedFont? = nil,
-        tracking: Double = 0
+        tracking: Double = 0,
+        wordSpacing: Double = 0
     ) -> Document {
         guard !text.isEmpty else { return self }
 
@@ -351,7 +352,7 @@ public final class Document {
         if let resolved = resolveFace(font: font, face: face, for: text) {
             return embeddedText(text, x: x, baseline: baseline, size: size,
                                 color: color, align: align, boxWidth: boxWidth,
-                                tracking: tracking, using: resolved)
+                                tracking: tracking, wordSpacing: wordSpacing, using: resolved)
         }
         if PDFEncoding.needsEmbedding(text) { record(text) }
         if family != nil { recordFallback(text) }
@@ -374,6 +375,7 @@ public final class Document {
         // the enclosing q/Q keeps it from leaking into the next run.
         current += "BT\n"
         if tracking != 0 { current += String(format: "%.3F Tc\n", PDFEncoding.number(tracking)) }
+        if wordSpacing != 0 { current += String(format: "%.3F Tw\n", PDFEncoding.number(wordSpacing)) }
 
         current += String(
             format: "/%@ %.2F Tf\n%.2F %.2F Td\n(%@) Tj\nET\nQ\n",
@@ -415,7 +417,7 @@ public final class Document {
     private func embeddedText(
         _ text: String, x: Double, baseline: Double, size: Double,
         color: Color?, align: Align, boxWidth: Double, tracking: Double,
-        using embedded: EmbeddedFont
+        wordSpacing: Double = 0, using embedded: EmbeddedFont
     ) -> Document {
         let (hex, width) = embedded.encode(text, size: size)
         guard !hex.isEmpty else { return self }
@@ -433,6 +435,9 @@ public final class Document {
         current += "BT\n"
         if tracking != 0 { current += String(format: "%.3F Tc\n", PDFEncoding.number(tracking)) }
 
+        // Tw applies to byte 32, which under Identity-H is half of a
+        // two-byte code and not a space at all. Justifying embedded text
+        // therefore means spacing the words by hand, which `block` does.
         current += String(
             format: "/%@ %.2F Tf\n%.2F %.2F Td\n<%@> Tj\nET\nQ\n",
             resourceName(for: embedded),
@@ -900,17 +905,64 @@ public final class Document {
                 ? [""]
                 : wrap(paragraph, font: font, size: pointSize, width: width, face: face)
 
-            for line in lines {
+            for (index, line) in lines.enumerated() {
                 if !line.isEmpty {
-                    textAt(line, x: x, y: baseline - ascender(line, font: font, size: pointSize, face: face),
-                           size: pointSize, font: font, color: color,
-                           align: align, boxWidth: width, face: face)
+                    let drop = ascender(line, font: font, size: pointSize, face: face)
+
+                    // The last line of a paragraph is set flush left however
+                    // the rest is set. Stretching four words across a full
+                    // measure is the thing that makes justified text look like
+                    // a ransom note.
+                    if align == .justified, index < lines.count - 1 {
+                        justify(line, x: x, y: baseline - drop, width: width,
+                                size: pointSize, font: font, color: color, face: face)
+                    } else {
+                        textAt(line, x: x, y: baseline - drop,
+                               size: pointSize, font: font, color: color,
+                               align: align == .justified ? .left : align,
+                               boxWidth: width, face: face)
+                    }
                 }
                 baseline -= step
             }
         }
         move(to: baseline)
         return top - baseline
+    }
+
+    /// Draws one line with its words spread to both edges.
+    ///
+    /// The words are placed individually rather than set with the `Tw`
+    /// operator. Tw adds its space to byte 32, and under Identity-H — which is
+    /// how every embedded font here is encoded — byte 32 is half of a two-byte
+    /// character code and not a space at all. A document set in an embedded
+    /// family would come out with gaps in the middle of words.
+    private func justify(
+        _ line: String, x: Double, y baseline: Double, width: Double,
+        size: Double, font: Font, color: Color?, face: EmbeddedFont?
+    ) {
+        let words = line.split(separator: " ").map(String.init)
+        guard words.count > 1 else {
+            textAt(line, x: x, y: baseline, size: size, font: font,
+                   color: color, face: face)
+            return
+        }
+
+        let ink = words.reduce(0.0) { $0 + measured($1, font: font, size: size, face: face) }
+        let gap = (width - ink) / Double(words.count - 1)
+
+        // A line that is already too long for its measure is left alone: a
+        // negative gap would run the words backwards over one another.
+        guard gap > 0 else {
+            textAt(line, x: x, y: baseline, size: size, font: font, color: color, face: face)
+            return
+        }
+
+        var cursorX = x
+        for word in words {
+            textAt(word, x: cursorX, y: baseline, size: size, font: font, color: color, face: face)
+            cursorX += measured(word, font: font, size: size, face: face) + gap
+        }
     }
 
     /// The height `block` would take, without drawing anything.

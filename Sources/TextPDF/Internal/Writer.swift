@@ -50,7 +50,11 @@ enum Writer {
         let objectsPerFace = 5
         let firstFace = 7
         let firstImage = firstFace + (embedded.count * objectsPerFace)
-        let firstPage = firstImage + images.count
+        // Two slots per image: the image, and the soft mask it may need. The
+        // slot is reserved whether or not the mask exists, because numbering
+        // it conditionally would renumber every page after the first
+        // transparent PNG.
+        let firstPage = firstImage + (images.count * 2)
 
         // The resource names come from the caller, which assigned them as the
         // content streams were written. A face whose subset cannot be built
@@ -66,12 +70,20 @@ enum Writer {
 
         var imageResources = ""
         for (index, picture) in images.enumerated() {
-            let object = firstImage + index
-            let (dictionary, bytes) = picture.image.xobject()
+            let object = firstImage + (index * 2)
+            let maskObject = object + 1
+
+            let mask = picture.image.maskObject()
+            let (dictionary, bytes) = picture.image.xobject(mask: mask == nil ? nil : maskObject)
 
             imageResources += " /\(picture.name) \(object) 0 R"
             objects[object] = "\(dictionary)\nstream\n\u{0}STREAM\u{0}\nendstream"
             binaries[object] = bytes
+
+            if let mask {
+                objects[maskObject] = "\(mask.dictionary)\nstream\n\u{0}STREAM\u{0}\nendstream"
+                binaries[maskObject] = mask.bytes
+            }
         }
 
         var resources = "/Font <<\(fontResources)>>"

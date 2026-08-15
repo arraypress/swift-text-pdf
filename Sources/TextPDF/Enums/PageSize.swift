@@ -36,4 +36,12 @@ public enum Align: String, Sendable, CaseIterable, Codable {
     case left
     case center
     case right
+
+    /// Both edges flush, the space between words stretched to reach.
+    ///
+    /// Only meaningful for wrapped text, and only for the lines that wrap: the
+    /// last line of a paragraph is set flush left, because stretching four
+    /// words across a full measure is the thing that makes justified text look
+    /// like a ransom note.
+    case justified
 }
