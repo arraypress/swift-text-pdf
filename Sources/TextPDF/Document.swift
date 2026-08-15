@@ -778,6 +778,13 @@ public final class Document {
 
     /// Draws an SVG `path` d-attribute as PDF path operators.
     @discardableResult
+    /// - Parameters:
+    ///   - svgHeight: The height of the art's own viewBox, which its y
+    ///     coordinates are measured down from. Icon sets are usually 24;
+    ///     leaving this at 100 for 24-unit art places it far above the
+    ///     anchor, off the page, silently.
+    ///   - evenOdd: Fill by the even-odd rule, so a subpath inside another
+    ///     cuts a hole rather than filling solid.
     public func svgPath(
         _ pathData: String,
         x: Double,
@@ -785,7 +792,8 @@ public final class Document {
         scale: Double = 1,
         color: Color? = nil,
         svgHeight: Double = 100,
-        strokeWidth: Double? = nil
+        strokeWidth: Double? = nil,
+        evenOdd: Bool = false
     ) -> Document {
         let operators = SVGPath.toPDF(pathData, scale: scale, svgHeight: svgHeight)
         guard !operators.isEmpty else { return self }
@@ -798,7 +806,11 @@ public final class Document {
         // stroke-only path filled instead comes out as a blob — the outline
         // was never meant to enclose anything.
         guard let strokeWidth else {
-            current += "q\n\(ink.operands) rg\n\(placement)\(operators)f\nQ\n"
+            // Filled. `evenOdd` is what a mark with a hole in it needs: two
+            // subpaths wound the same way fill solid under the nonzero rule,
+            // so a ring comes out a disc and an icon set drawn that way loses
+            // every counter it has.
+            current += "q\n\(ink.operands) rg\n\(placement)\(operators)\(evenOdd ? "f*" : "f")\nQ\n"
             return self
         }
 

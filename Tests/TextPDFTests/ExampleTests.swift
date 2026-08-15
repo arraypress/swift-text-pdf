@@ -39,7 +39,7 @@ final class ExampleTests: XCTestCase {
             .appendingPathComponent("Examples", isDirectory: true)
     }
 
-    private func put(_ pdf: Document, _ name: String, pages: Int = 1) throws {
+    private func put(_ pdf: Document, _ name: String, pages: Int = 1, ink minimum: Double = 0.004) throws {
         let data = pdf.render(creationDate: Self.stamped)
 
         // Checked either way: doing this in a test means every example is
@@ -48,12 +48,41 @@ final class ExampleTests: XCTestCase {
         XCTAssertEqual(document.pageCount, pages, "\(name) ran to the wrong length")
         XCTAssertGreaterThan(data.count, 800, "\(name) came out suspiciously small")
 
+        // And that what was drawn is actually on the paper. The vector page
+        // shipped once with every mark placed three pages above the anchor —
+        // a valid one-page PDF of the right size, carrying a title and
+        // nothing else. Bytes cannot tell you that; ink can.
+        let covered = try coverage(of: try XCTUnwrap(document.page(at: 0)))
+        XCTAssertGreaterThan(covered, minimum,
+                             "\(name) is \(Int(covered * 1000))‰ ink — is the drawing on the page?")
+
         guard writing else { return }
         let file = directory.appendingPathComponent(name)
         try FileManager.default.createDirectory(
             at: file.deletingLastPathComponent(), withIntermediateDirectories: true
         )
         try data.write(to: file)
+    }
+
+    /// How much of a page is not white.
+    private func coverage(of page: PDFPage) throws -> Double {
+        var box = CGRect(x: 0, y: 0, width: 300, height: 424)
+        let raster = try XCTUnwrap(
+            page.thumbnail(of: box.size, for: .mediaBox)
+                .cgImage(forProposedRect: &box, context: nil, hints: nil)
+        )
+
+        var pixels = [UInt8](repeating: 0, count: raster.width * raster.height)
+        let context = try XCTUnwrap(CGContext(
+            data: &pixels, width: raster.width, height: raster.height,
+            bitsPerComponent: 8, bytesPerRow: raster.width,
+            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ))
+        context.setFillColor(gray: 1, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: raster.width, height: raster.height))
+        context.draw(raster, in: CGRect(x: 0, y: 0, width: raster.width, height: raster.height))
+
+        return Double(pixels.filter { $0 < 200 }.count) / Double(pixels.count)
     }
 
     /// A page with its subject named at the top, so a folder of these can be
@@ -165,26 +194,49 @@ final class ExampleTests: XCTestCase {
             pdf.gap(20)
         }
 
-        try put(pdf, "curves.pdf")
+        try put(pdf, "curves.pdf", ink: 0.02)
     }
 
     func testAVectorPath() throws {
         let pdf = page("Vector paths", "An SVG path becomes PDF path operators — sharp at any zoom, a few hundred bytes.")
 
-        // A mark drawn once and stamped at four sizes. A raster would go soft
-        // at the largest; this is the same handful of operators each time.
+        // A 24-unit mark, drawn once and stamped at four sizes. The viewBox
+        // has to be declared: `svgHeight` is what the y coordinates are
+        // measured down from, and leaving it at its 100-unit default puts
+        // 24-unit art three pages above the anchor.
         let mark = "M12 2 L22 20 L2 20 Z M12 8 L17.5 18 L6.5 18 Z"
+        let box = 24.0
+
         var x = pdf.left()
-        for scale in [1.5, 3.0, 5.0, 8.0] {
-            pdf.svgPath(mark, x: x, y: pdf.cursor() - 20, scale: scale, color: .hex("#1F3A5F"))
-            x += 24 * scale + 24
+        let baseline = pdf.cursor() - 8
+
+        for scale in [2.0, 3.5, 5.5, 8.0] {
+            let size = box * scale
+            pdf.svgPath(mark, x: x, y: baseline - size, scale: scale,
+                        color: .hex("#1F3A5F"), svgHeight: box, evenOdd: true)
+            pdf.textAt("×\(scale.formatted())", x: x, y: baseline - size - 14,
+                       size: 8, color: .grey(130))
+            x += size + 22
         }
 
-        pdf.move(to: pdf.cursor() - 200)
-        pdf.text("The same twelve path operators at four scales. Zoom in: the edges stay sharp, "
-                 + "because there is nothing to resample.", size: 9.5)
+        pdf.move(to: baseline - box * 8 - 40)
+        pdf.text("The same twelve path operators at four scales, filled even-odd so the "
+                 + "counter stays open. Zoom in: the edges stay sharp, because there is "
+                 + "nothing to resample.", size: 9.5)
+        pdf.gap(10)
 
-        try put(pdf, "vector-path.pdf")
+        // The same mark stroked rather than filled, which is what an icon set
+        // drawn as outlines needs — filling one of those comes out as a blob.
+        var strokeX = pdf.left()
+        for width in [0.8, 1.4, 2.2] {
+            pdf.svgPath(mark, x: strokeX, y: pdf.cursor() - 48, scale: 2, color: .grey(60),
+                        svgHeight: box, strokeWidth: width)
+            strokeX += 70
+        }
+        pdf.move(to: pdf.cursor() - 58)
+        pdf.text("Stroked, at three widths. Icon sets come in both kinds.", size: 9.5)
+
+        try put(pdf, "vector-path.pdf", ink: 0.03)
     }
 
     // MARK: Type
@@ -320,7 +372,7 @@ final class ExampleTests: XCTestCase {
                  + "rather than being flattened onto white, which is why the disc has no square "
                  + "around it — and why a cut-out logo can sit on a coloured band.", size: 9.5)
 
-        try put(pdf, "pictures.pdf")
+        try put(pdf, "pictures.pdf", ink: 0.05)
     }
 
     func testLinks() throws {
