@@ -31,6 +31,7 @@ This writes the PDF directly. It covers what a business document actually needs 
 - 🇪🇺 **VAT-aware** — reverse charge, intra-community supply, export and small-business wording, in English and German
 - ✅ **Compliance checks** — the §14 UStG / Article 226 particulars, verified before you send
 - 🔒 **Injection-safe** — customer names cannot escape the content stream
+- ✒️ **Real typography** — embed a family in several weights and italic; metrics come from the face, and only the glyphs used are carried
 - 🪶 **Zero dependencies**
 
 ## Documents
@@ -84,6 +85,39 @@ Not tax advice, and not exhaustive. Both verify that the particulars are present
 ## Money is a string, deliberately
 
 Every amount is pre-formatted. Rendering money correctly means knowing the currency's decimal exponent, its thousands convention and its symbol placement, and a layout type has no business guessing at any of that. Format it where the money lives and pass the result.
+
+## Setting a document in a typeface
+
+The base-14 fonts are the default because a business document is better for
+being unremarkable. Where the typography *is* the point, attach a family and it
+sets everything:
+
+```swift
+var inter = FontFamily(name: "Inter")
+inter.add(try EmbeddedFont.load(regularURL), weight: .regular)
+inter.add(try EmbeddedFont.load(semiboldURL), weight: .semibold)
+inter.add(try EmbeddedFont.load(italicURL), weight: .regular, italic: true)
+
+let pdf = Document()
+pdf.family = inter
+
+pdf.text("Alex Morgan", size: 22, font: .helveticaBold)   // Inter SemiBold
+pdf.text("Senior Engineer")                                // Inter Regular
+pdf.text("Formerly Stripe", face: pdf.face(.regular, italic: true))
+```
+
+Existing layout code upgrades without being touched: a template asking for
+`.helveticaBold` gets the family's bold. Weights resolve to the nearest face
+actually loaded, so a design asking for semibold in a family carrying only
+regular and bold gets bold rather than nothing.
+
+Only the faces actually drawn with are embedded, and only the glyphs they use —
+a family of nine weights costs whatever the design touches.
+
+Vertical metrics are read from each face rather than assumed at a fixed ratio.
+Inter's cap height is 727 units where EB Garamond's is 662, and centring both
+on one number leaves one riding high and the other sitting low in the same
+band.
 
 ## Text beyond Latin-1
 

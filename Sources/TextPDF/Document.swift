@@ -65,6 +65,25 @@ public final class Document {
     /// typography consistent.
     public var embeddedFont: EmbeddedFont?
 
+    /// The typeface the document is set in.
+    ///
+    /// Where ``embeddedFont`` is a fallback reached for only when Windows-1252
+    /// cannot hold the text, a family is the document's type: it draws
+    /// everything, and the base-14 fonts become the fallback instead.
+    ///
+    /// Layout code needs no changes to benefit — a template asking for
+    /// `.helveticaBold` gets the family's bold weight.
+    public var family: FontFamily?
+
+    /// Embedded faces in first-use order. The index gives the resource name,
+    /// so `/F4` is the first face actually drawn with.
+    ///
+    /// First-use order rather than the family's order, because only the faces
+    /// that get used are written into the file — a family carrying nine
+    /// weights of which a design uses three should cost three subsets.
+    private var facesInUse: [EmbeddedFont] = []
+    private var faceIndex: [ObjectIdentifier: Int] = [:]
+
     public init(
         size: PageSize = .a4,
         orientation: Orientation = .portrait,
@@ -129,6 +148,57 @@ public final class Document {
 
     public func pageCount() -> Int { pages.count + (current.isEmpty ? 0 : 1) }
 
+    // MARK: Typeface
+
+    /// The family's face at a weight, for passing to a drawing call.
+    ///
+    /// ```swift
+    /// pdf.textAt(name, x: pdf.left(), y: top, size: 22, face: pdf.face(.semibold))
+    /// ```
+    ///
+    /// Returns `nil` when no family is attached, which the drawing calls read
+    /// as "use the base-14 font" — so a layout written for a family still
+    /// renders, in Helvetica, when none is supplied.
+    public func face(_ weight: FontFamily.Weight, italic: Bool = false) -> EmbeddedFont? {
+        family?.face(weight, italic: italic)
+    }
+
+    /// Which face will actually draw this text, if any.
+    ///
+    /// Ordered by how specific the instruction was. An explicit face is the
+    /// caller naming one and wins; a family is the document's type and covers
+    /// everything it can; ``embeddedFont`` is the last resort and applies only
+    /// where Windows-1252 falls short, which is the behaviour documents
+    /// written before families existed depend on.
+    ///
+    /// Each candidate must actually cover the text. A family that has no
+    /// Cyrillic still lets a Cyrillic name fall through to a fallback font
+    /// that does, rather than drawing it in notdef boxes.
+    private func resolveFace(font: Font, face: EmbeddedFont?, for text: String) -> EmbeddedFont? {
+        if let face, face.covers(text) { return face }
+        if let candidate = family?.face(for: font), candidate.covers(text) { return candidate }
+        if PDFEncoding.needsEmbedding(text), let embeddedFont, embeddedFont.covers(text) {
+            return embeddedFont
+        }
+        return nil
+    }
+
+    /// The PDF resource name for a face, registering it on first use.
+    private func resourceName(for face: EmbeddedFont) -> String {
+        let key = ObjectIdentifier(face)
+        if let index = faceIndex[key] { return "F\(4 + index)" }
+
+        let index = facesInUse.count
+        faceIndex[key] = index
+        facesInUse.append(face)
+        return "F\(4 + index)"
+    }
+
+    /// The distance to the baseline for whichever face will draw the text.
+    private func ascender(_ text: String, font: Font, size: Double, face: EmbeddedFont?) -> Double {
+        resolveFace(font: font, face: face, for: text)?.ascender(size) ?? font.ascender(size)
+    }
+
     // MARK: Text
 
     /// Flowing text, wrapped to the content width and broken across pages.
@@ -138,19 +208,20 @@ public final class Document {
         size: Double? = nil,
         font: Font = .helvetica,
         color: Color? = nil,
-        align: Align = .left
+        align: Align = .left,
+        face: EmbeddedFont? = nil
     ) -> Document {
         let pointSize = size ?? fontSize
 
-        for line in wrap(text, font: font, size: pointSize, width: contentWidth()) {
+        for line in wrap(text, font: font, size: pointSize, width: contentWidth(), face: face) {
             breakIfNeeded(leading)
             // The cursor marks the TOP of the line box; PDF positions text by
             // its baseline. Drawing at the cursor puts ascenders above the
             // margin and through anything drawn above.
             textAt(
-                line, x: margin, y: y - font.ascender(pointSize),
+                line, x: margin, y: y - ascender(line, font: font, size: pointSize, face: face),
                 size: pointSize, font: font, color: color,
-                align: align, boxWidth: contentWidth()
+                align: align, boxWidth: contentWidth(), face: face
             )
             y -= leading
         }
@@ -158,8 +229,10 @@ public final class Document {
     }
 
     @discardableResult
-    public func heading(_ text: String, size: Double? = nil, color: Color? = nil) -> Document {
-        self.text(text, size: size ?? fontSize + 2, font: .helveticaBold, color: color)
+    public func heading(
+        _ text: String, size: Double? = nil, color: Color? = nil, face: EmbeddedFont? = nil
+    ) -> Document {
+        self.text(text, size: size ?? fontSize + 2, font: .helveticaBold, color: color, face: face)
     }
 
     /// Aligned inside a box, advancing nothing.
@@ -171,12 +244,13 @@ public final class Document {
         size: Double? = nil,
         font: Font = .helvetica,
         color: Color? = nil,
-        align: Align = .left
+        align: Align = .left,
+        face: EmbeddedFont? = nil
     ) -> Document {
         let pointSize = size ?? fontSize
         return textAt(
-            text, x: x, y: y - font.ascender(pointSize),
-            size: pointSize, font: font, color: color, align: align, boxWidth: boxWidth
+            text, x: x, y: y - ascender(text, font: font, size: pointSize, face: face),
+            size: pointSize, font: font, color: color, align: align, boxWidth: boxWidth, face: face
         )
     }
 
@@ -191,12 +265,17 @@ public final class Document {
         size: Double? = nil,
         font: Font = .helvetica,
         color: Color? = nil,
-        align: Align = .left
+        align: Align = .left,
+        face: EmbeddedFont? = nil
     ) -> Document {
         let pointSize = size ?? fontSize
+        let resolved = resolveFace(font: font, face: face, for: text)
+        let baseline = resolved?.bandBaseline(bandHeight: bandHeight, size: pointSize)
+            ?? font.bandBaseline(bandHeight: bandHeight, size: pointSize)
+
         return textAt(
-            text, x: x, y: y - font.bandBaseline(bandHeight: bandHeight, size: pointSize),
-            size: pointSize, font: font, color: color, align: align, boxWidth: boxWidth
+            text, x: x, y: y - baseline,
+            size: pointSize, font: font, color: color, align: align, boxWidth: boxWidth, face: face
         )
     }
 
@@ -210,20 +289,20 @@ public final class Document {
         font: Font = .helvetica,
         color: Color? = nil,
         align: Align = .left,
-        boxWidth: Double = 0
+        boxWidth: Double = 0,
+        face: EmbeddedFont? = nil
     ) -> Document {
         guard !text.isEmpty else { return self }
 
-        // The base-14 fonts cover Windows-1252. Anything beyond it is drawn
-        // with the embedded font when one is loaded, and only then — mixing
-        // per string keeps the subset to what is actually needed.
-        if PDFEncoding.needsEmbedding(text) {
-            if let embeddedFont, embeddedFont.covers(text) {
-                return embeddedText(text, x: x, baseline: baseline, size: size,
-                                    color: color, align: align, boxWidth: boxWidth, using: embeddedFont)
-            }
-            record(text)
+        // An embedded face draws the run when one applies — a named face, the
+        // document's family, or the fallback for text Windows-1252 cannot
+        // hold. Resolving per string keeps each subset to what it actually
+        // needs.
+        if let resolved = resolveFace(font: font, face: face, for: text) {
+            return embeddedText(text, x: x, baseline: baseline, size: size,
+                                color: color, align: align, boxWidth: boxWidth, using: resolved)
         }
+        if PDFEncoding.needsEmbedding(text) { record(text) }
 
         let escaped = PDFEncoding.escape(text)
         var originX = x
@@ -275,7 +354,8 @@ public final class Document {
         if !ink.isBlack { current += ink.operands + " rg\n" }
 
         current += String(
-            format: "BT\n/F4 %.2F Tf\n%.2F %.2F Td\n<%@> Tj\nET\nQ\n",
+            format: "BT\n/%@ %.2F Tf\n%.2F %.2F Td\n<%@> Tj\nET\nQ\n",
+            resourceName(for: embedded),
             PDFEncoding.number(size),
             PDFEncoding.number(originX),
             PDFEncoding.number(baseline),
@@ -292,7 +372,8 @@ public final class Document {
         aligns: [Int: Align] = [:],
         font: Font = .helvetica,
         size: Double? = nil,
-        color: Color? = nil
+        color: Color? = nil,
+        face: EmbeddedFont? = nil
     ) -> Document {
         guard !cells.isEmpty else { return self }
 
@@ -303,13 +384,18 @@ public final class Document {
 
         breakIfNeeded(leading)
 
+        // One baseline for the row, not one per cell: resolving per string
+        // would sit a cell drawn in the family a hair above one that fell
+        // back to Helvetica, and a row of figures would no longer line up.
+        let rowAscender = ascender(cells.joined(), font: font, size: pointSize, face: face)
+
         var x = margin
         for (index, cell) in cells.enumerated() {
             let boxWidth = contentWidth() * fractions[index]
             textAt(
-                cell, x: x, y: y - font.ascender(pointSize),
+                cell, x: x, y: y - rowAscender,
                 size: pointSize, font: font, color: color,
-                align: aligns[index] ?? .left, boxWidth: boxWidth
+                align: aligns[index] ?? .left, boxWidth: boxWidth, face: face
             )
             x += boxWidth
         }
@@ -390,14 +476,31 @@ public final class Document {
         var finished = pages
         if !current.isEmpty || finished.isEmpty { finished.append(current) }
 
+        // Footers draw, and drawing can register a face that nothing in the
+        // body used — a page number set in the family is the obvious case. So
+        // the streams are stamped first and the face list read afterwards.
+        let stamped = applyFooters(to: finished)
+
         return Writer.write(
-            pages: applyFooters(to: finished),
+            pages: stamped,
             width: pageWidth,
             height: pageHeight,
             metadata: metadata,
             creationDate: creationDate,
-            embedded: embeddedFont
+            embedded: embeddedFaces
         )
+    }
+
+    /// The embedded faces actually drawn with, each under the resource name
+    /// the content streams already refer to.
+    ///
+    /// The names are assigned here rather than recomputed by the writer.
+    /// Deriving them twice invites the two from drifting, and the failure is
+    /// silent: `/F5` in a stream resolving to a different font's object
+    /// produces a document that renders in the wrong typeface rather than one
+    /// that fails to open.
+    private var embeddedFaces: [(name: String, font: EmbeddedFont)] {
+        facesInUse.enumerated().map { (name: "F\(4 + $0.offset)", font: $0.element) }
     }
 
     /// Writes the PDF to a file, returning the byte count.
@@ -446,7 +549,8 @@ public final class Document {
         font: Font = .helvetica,
         color: Color? = nil,
         align: Align = .left,
-        leading lineHeight: Double? = nil
+        leading lineHeight: Double? = nil,
+        face: EmbeddedFont? = nil
     ) -> Double {
         let pointSize = size ?? fontSize
         let step = lineHeight ?? pointSize * 1.35
@@ -457,13 +561,13 @@ public final class Document {
         for paragraph in text.components(separatedBy: "\n") {
             let lines = paragraph.isEmpty
                 ? [""]
-                : wrap(paragraph, font: font, size: pointSize, width: width)
+                : wrap(paragraph, font: font, size: pointSize, width: width, face: face)
 
             for line in lines {
                 if !line.isEmpty {
-                    textAt(line, x: x, y: baseline - font.ascender(pointSize),
+                    textAt(line, x: x, y: baseline - ascender(line, font: font, size: pointSize, face: face),
                            size: pointSize, font: font, color: color,
-                           align: align, boxWidth: width)
+                           align: align, boxWidth: width, face: face)
                 }
                 baseline -= step
             }
@@ -477,37 +581,39 @@ public final class Document {
     /// For sizing a panel before its contents go in it.
     public func blockHeight(
         _ text: String, font: Font = .helvetica, size: Double? = nil,
-        width: Double, leading lineHeight: Double? = nil
+        width: Double, leading lineHeight: Double? = nil, face: EmbeddedFont? = nil
     ) -> Double {
         let pointSize = size ?? fontSize
         let step = lineHeight ?? pointSize * 1.35
         let count = text.components(separatedBy: "\n").reduce(0) { total, paragraph in
-            total + (paragraph.isEmpty ? 1 : wrap(paragraph, font: font, size: pointSize, width: width).count)
+            total + (paragraph.isEmpty
+                ? 1
+                : wrap(paragraph, font: font, size: pointSize, width: width, face: face).count)
         }
         return Double(count) * step
     }
 
     /// `text` shortened to fit `width`, measured as it will be drawn.
-    func truncate(_ text: String, font: Font, size: Double, width: Double) -> String {
-        guard measured(text, font: font, size: size) > width else { return text }
+    func truncate(_ text: String, font: Font, size: Double, width: Double, face: EmbeddedFont? = nil) -> String {
+        guard measured(text, font: font, size: size, face: face) > width else { return text }
 
-        let ellipsis = measured("...", font: font, size: size)
+        let ellipsis = measured("...", font: font, size: size, face: face)
         var trimmed = text
-        while !trimmed.isEmpty, measured(trimmed, font: font, size: size) + ellipsis > width {
+        while !trimmed.isEmpty, measured(trimmed, font: font, size: size, face: face) + ellipsis > width {
             trimmed.removeLast()
         }
         return trimmed + "..."
     }
 
     /// The width of text as it will actually be drawn.
-    func measured(_ text: String, font: Font, size: Double) -> Double {
-        if let embeddedFont, PDFEncoding.needsEmbedding(text), embeddedFont.covers(text) {
-            return embeddedFont.widthOf(text, size: size)
+    func measured(_ text: String, font: Font, size: Double, face: EmbeddedFont? = nil) -> Double {
+        if let resolved = resolveFace(font: font, face: face, for: text) {
+            return resolved.widthOf(text, size: size)
         }
         return font.widthOf(text, size: size)
     }
 
-    func wrap(_ text: String, font: Font, size: Double, width: Double) -> [String] {
+    func wrap(_ text: String, font: Font, size: Double, width: Double, face: EmbeddedFont? = nil) -> [String] {
         var lines: [String] = []
 
         for paragraph in text.components(separatedBy: "\n") {
@@ -516,7 +622,7 @@ public final class Document {
 
             for word in words {
                 let candidate = line.isEmpty ? word : line + " " + word
-                if measured(candidate, font: font, size: size) <= width {
+                if measured(candidate, font: font, size: size, face: face) <= width {
                     line = candidate
                     continue
                 }
@@ -526,10 +632,10 @@ public final class Document {
                 // forever; break it rather than overflow the margin.
                 var remainder = word
                 while remainder.count > 1,
-                      measured(remainder, font: font, size: size) > width {
+                      measured(remainder, font: font, size: size, face: face) > width {
                     var head = remainder
                     while head.count > 1,
-                          measured(head, font: font, size: size) > width {
+                          measured(head, font: font, size: size, face: face) > width {
                         head.removeLast()
                     }
                     lines.append(head)

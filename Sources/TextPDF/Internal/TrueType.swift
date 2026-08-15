@@ -24,12 +24,54 @@
 
 import Foundation
 
+/// A face's vertical metrics, in 1/1000 em.
+///
+/// Read from the font rather than assumed. A fixed ascender ratio is a
+/// tolerable approximation for a fallback face drawing the odd Cyrillic name,
+/// but a document *set* in a face positions every baseline from it — and the
+/// ratio varies enough between families to be visible. Inter's cap height is
+/// 727 units where EB Garamond's is 662; centring both on 717 leaves one
+/// riding high and the other sitting low in the same band.
+struct FontMetrics: Sendable, Equatable {
+
+    let ascender: Double
+    /// Negative, as the font declares it.
+    let descender: Double
+    let capHeight: Double
+    let xHeight: Double
+    let italicAngle: Double
+    let bbox: (minX: Double, minY: Double, maxX: Double, maxY: Double)
+    let isItalic: Bool
+    let isBold: Bool
+
+    /// OS/2 usWeightClass — 400 regular, 600 semibold, 700 bold.
+    let weightClass: Int
+
+    static func == (lhs: FontMetrics, rhs: FontMetrics) -> Bool {
+        lhs.ascender == rhs.ascender && lhs.descender == rhs.descender
+            && lhs.capHeight == rhs.capHeight && lhs.xHeight == rhs.xHeight
+            && lhs.italicAngle == rhs.italicAngle && lhs.bbox == rhs.bbox
+            && lhs.isItalic == rhs.isItalic && lhs.isBold == rhs.isBold
+            && lhs.weightClass == rhs.weightClass
+    }
+
+    /// What the base-14 ratios assume, for a font that declares nothing useful.
+    static let fallback = FontMetrics(
+        ascender: 780, descender: -220, capHeight: 717, xHeight: 523,
+        italicAngle: 0, bbox: (-200, -400, 1000, 1000),
+        isItalic: false, isBold: false, weightClass: 400
+    )
+}
+
 /// A parsed TrueType font, enough of one to subset it.
 struct TrueTypeFont {
 
     let data: Data
     let unitsPerEm: Int
     let glyphCount: Int
+
+    /// Vertical metrics, scaled to 1/1000 em.
+    let metrics: FontMetrics
 
     /// Offsets into `glyf` for every glyph, `glyphCount + 1` entries.
     private let loca: [Int]
@@ -106,6 +148,87 @@ struct TrueTypeFont {
             widths.append(last)
         }
         advances = widths
+
+        metrics = Self.readMetrics(
+            data: data, tables: found, head: head, hhea: hhea, unitsPerEm: unitsPerEm
+        )
+    }
+
+    /// Vertical metrics, preferring OS/2's typographic values.
+    ///
+    /// Three tables disagree about a font's ascender and each is right about
+    /// something different: `hhea` carries the values the original designer set
+    /// for line spacing, OS/2's `sTypo*` are the ones a modern layout engine is
+    /// told to use, and `usWin*` are clipping bounds Windows enforces. OS/2 is
+    /// preferred where it is present and non-zero, falling back to `hhea` —
+    /// which every valid TrueType font has.
+    ///
+    /// Cap height and x-height only exist from OS/2 version 2. Below that they
+    /// are derived from the em, because the alternative is measuring the `H`
+    /// and `x` outlines and no layout decision here justifies that.
+    private static func readMetrics(
+        data: Data, tables: [String: Range<Int>],
+        head: Range<Int>, hhea: Range<Int>, unitsPerEm: Int
+    ) -> FontMetrics {
+        guard unitsPerEm > 0 else { return .fallback }
+        let perMille = 1000.0 / Double(unitsPerEm)
+
+        var ascender = Double(data.i16(hhea.lowerBound + 4)) * perMille
+        var descender = Double(data.i16(hhea.lowerBound + 6)) * perMille
+        var capHeight = 0.0
+        var xHeight = 0.0
+        var weightClass = 400
+        var italicFromOS2 = false
+
+        if let os2 = tables["OS/2"], os2.count >= 78 {
+            let version = data.u16(os2.lowerBound)
+            weightClass = Int(data.u16(os2.lowerBound + 4))
+
+            // fsSelection bit 0 is italic, bit 5 bold.
+            let selection = data.u16(os2.lowerBound + 62)
+            italicFromOS2 = (selection & 0x0001) != 0
+
+            let typoAscender = Double(data.i16(os2.lowerBound + 68)) * perMille
+            let typoDescender = Double(data.i16(os2.lowerBound + 70)) * perMille
+            if typoAscender != 0 { ascender = typoAscender }
+            if typoDescender != 0 { descender = typoDescender }
+
+            if version >= 2, os2.count >= 90 {
+                capHeight = Double(data.i16(os2.lowerBound + 88)) * perMille
+                xHeight = Double(data.i16(os2.lowerBound + 86)) * perMille
+            }
+        }
+
+        // macStyle, for fonts whose OS/2 table is absent or lying.
+        let macStyle = data.u16(head.lowerBound + 44)
+        let isBold = (macStyle & 0x0001) != 0 || weightClass >= 600
+        let isItalic = (macStyle & 0x0002) != 0 || italicFromOS2
+
+        var italicAngle = 0.0
+        if let post = tables["post"], post.count >= 8 {
+            // Fixed 16.16, signed.
+            italicAngle = Double(Int32(bitPattern: data.u32(post.lowerBound + 4))) / 65536
+        }
+
+        if capHeight <= 0 { capHeight = ascender * 0.92 }
+        if xHeight <= 0 { xHeight = capHeight * 0.73 }
+
+        return FontMetrics(
+            ascender: ascender,
+            descender: descender,
+            capHeight: capHeight,
+            xHeight: xHeight,
+            italicAngle: italicAngle,
+            bbox: (
+                minX: Double(data.i16(head.lowerBound + 36)) * perMille,
+                minY: Double(data.i16(head.lowerBound + 38)) * perMille,
+                maxX: Double(data.i16(head.lowerBound + 40)) * perMille,
+                maxY: Double(data.i16(head.lowerBound + 42)) * perMille
+            ),
+            isItalic: isItalic,
+            isBold: isBold,
+            weightClass: weightClass
+        )
     }
 
     init?(contentsOf url: URL) {
@@ -312,6 +435,12 @@ private extension Data {
         guard base + 1 < endIndex else { return 0 }
         return UInt16(self[base]) << 8 | UInt16(self[base + 1])
     }
+
+    /// A signed 16-bit big-endian value — an FWord.
+    ///
+    /// Descenders are negative, so reading them unsigned turns -220 into
+    /// 65316 and every line in the document acquires a 65-em gap.
+    func i16(_ offset: Int) -> Int16 { Int16(bitPattern: u16(offset)) }
 
     func u32(_ offset: Int) -> UInt32 {
         let base = startIndex + offset

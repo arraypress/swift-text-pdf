@@ -34,22 +34,31 @@ enum Writer {
         height: Double,
         metadata: [String: String],
         creationDate: Date,
-        embedded: EmbeddedFont? = nil
+        embedded: [(name: String, font: EmbeddedFont)] = []
     ) -> Data {
         let streams = pages.isEmpty ? [""] : pages
 
         var objects: [Int: String] = [:]
+        var binaries: [Int: Data] = [:]
         var pageRefs: [String] = []
 
-        // 1 Catalog, 2 Pages, 3–5 base fonts, 6 Info, 7–11 the embedded font
-        // when there is one, then page/content pairs.
-        let embeddedObjects = 5
-        let embeddedFirst = 7
-        let usesEmbedded = embedded?.isUsed == true
-        let firstPage = usesEmbedded ? embeddedFirst + embeddedObjects : embeddedFirst
+        // 1 Catalog, 2 Pages, 3–5 base fonts, 6 Info, then five objects per
+        // embedded face, then page/content pairs.
+        let objectsPerFace = 5
+        let firstFace = 7
+        let firstPage = firstFace + (embedded.count * objectsPerFace)
 
+        // The resource names come from the caller, which assigned them as the
+        // content streams were written. A face whose subset cannot be built
+        // keeps its object slot — dropping it would renumber every face after
+        // it, and the streams already name them.
         var fontResources = "/F1 3 0 R /F2 4 0 R /F3 5 0 R"
-        if usesEmbedded { fontResources += " /F4 \(embeddedFirst) 0 R" }
+        for (index, face) in embedded.enumerated() {
+            let first = firstFace + (index * objectsPerFace)
+            guard let parts = face.font.embeddable() else { continue }
+            fontResources += " /\(face.name) \(first) 0 R"
+            addEmbedded(face.font, parts: parts, at: first, into: &objects, binaries: &binaries)
+        }
 
         for (index, stream) in streams.enumerated() {
             let pageObject = firstPage + (index * 2)
@@ -72,11 +81,6 @@ enum Writer {
         objects[4] = baseFont(.helveticaBold)
         objects[5] = baseFont(.courier)
         objects[6] = info(metadata, creationDate: creationDate)
-
-        var binaries: [Int: Data] = [:]
-        if usesEmbedded, let embedded, let parts = embedded.embeddable() {
-            addEmbedded(embedded, parts: parts, at: embeddedFirst, into: &objects, binaries: &binaries)
-        }
 
         return serialise(objects, upTo: firstPage + (streams.count * 2) - 1, binaries: binaries)
     }
@@ -110,10 +114,26 @@ enum Writer {
             + "/FontDescriptor \(descriptor) 0 R /DW 1000 /W [\(widths)] /CIDToGIDMap /Identity>>"
 
         // Flags bit 3 marks a symbolic font, which is the honest description
-        // of an Identity-H subset: it has no standard character set.
-        objects[descriptor] = "<</Type /FontDescriptor /FontName /\(font.name) /Flags 4 "
-            + "/FontBBox [-1000 -400 2000 1200] /ItalicAngle 0 /Ascent 900 /Descent -200 "
-            + "/CapHeight 700 /StemV 80 /FontFile2 \(fileObject) 0 R>>"
+        // of an Identity-H subset: it has no standard character set. Bit 7
+        // marks italic, which a reader uses when it has to synthesise a
+        // missing face.
+        let metrics = font.metrics
+        let flags = 4 | (metrics.isItalic ? 64 : 0)
+
+        // StemV has no equivalent in a TrueType file, and readers use it to
+        // synthesise a substitute when the embedded font is unavailable.
+        // Approximated from the weight class rather than left at a constant
+        // that would describe every face as regular.
+        let stemV = max(50, Int((Double(metrics.weightClass) / 65).rounded()) * 10 - 10)
+
+        objects[descriptor] = "<</Type /FontDescriptor /FontName /\(font.name) /Flags \(flags) "
+            + String(
+                format: "/FontBBox [%.0F %.0F %.0F %.0F] /ItalicAngle %.1F /Ascent %.0F /Descent %.0F ",
+                metrics.bbox.minX, metrics.bbox.minY, metrics.bbox.maxX, metrics.bbox.maxY,
+                metrics.italicAngle, metrics.ascender, metrics.descender
+            )
+            + String(format: "/CapHeight %.0F ", metrics.capHeight)
+            + "/StemV \(stemV) /FontFile2 \(fileObject) 0 R>>"
 
         objects[fileObject] = "<</Length \(parts.data.count) /Length1 \(parts.data.count)>>\nstream\n\u{0}STREAM\u{0}\nendstream"
         binaries[fileObject] = parts.data

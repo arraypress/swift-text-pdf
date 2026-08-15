@@ -84,6 +84,42 @@ public final class EmbeddedFont: @unchecked Sendable {
         self.unitsPerEm = source.unitsPerEm
     }
 
+    // MARK: Metrics
+
+    /// Vertical metrics as the face declares them.
+    var metrics: FontMetrics { source.metrics }
+
+    /// Distance from the top of a line box down to the baseline.
+    ///
+    /// Read from the font rather than assumed at a fixed ratio, because a
+    /// document set in this face positions every baseline from it. The
+    /// base-14 approximation is fine for a fallback drawing one name; it is
+    /// visible when it sets the whole page.
+    public func ascender(_ size: Double) -> Double { source.metrics.ascender * size / 1000 }
+
+    /// Depth below the baseline, as a positive number.
+    public func descender(_ size: Double) -> Double { abs(source.metrics.descender) * size / 1000 }
+
+    /// A capital letter's height above the baseline.
+    public func capHeight(_ size: Double) -> Double { source.metrics.capHeight * size / 1000 }
+
+    /// The height of a lowercase `x` — what the eye actually reads as size.
+    public func xHeight(_ size: Double) -> Double { source.metrics.xHeight * size / 1000 }
+
+    /// The baseline offset that vertically centres text in a band.
+    public func bandBaseline(bandHeight: Double, size: Double) -> Double {
+        (bandHeight + capHeight(size)) / 2
+    }
+
+    /// Whether the face is a bold weight, by its own declaration.
+    public var isBold: Bool { source.metrics.isBold }
+
+    /// Whether the face is italic or oblique, by its own declaration.
+    public var isItalic: Bool { source.metrics.isItalic }
+
+    /// OS/2 weight class — 400 regular, 500 medium, 600 semibold, 700 bold.
+    public var weightClass: Int { source.metrics.weightClass }
+
     // MARK: Measuring and mapping
 
     /// The glyph for a scalar, or `nil` when the font has none.
