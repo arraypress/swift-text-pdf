@@ -503,6 +503,24 @@ public final class Document {
              color: color ?? .grey(242))
     }
 
+    /// A filled polygon.
+    ///
+    /// For the shapes a rectangle cannot make — a masthead panel with an
+    /// angled lower edge, a corner flash, an arrow.
+    @discardableResult
+    public func polygon(_ points: [(x: Double, y: Double)], color: Color? = nil) -> Document {
+        guard points.count >= 3 else { return self }
+
+        var path = String(format: "%.3F %.3F m\n",
+                          PDFEncoding.number(points[0].x), PDFEncoding.number(points[0].y))
+        for point in points.dropFirst() {
+            path += String(format: "%.3F %.3F l\n",
+                           PDFEncoding.number(point.x), PDFEncoding.number(point.y))
+        }
+        path += "h\n"
+        return fill(path, color: color ?? .grey(242))
+    }
+
     /// A filled disc.
     @discardableResult
     public func circle(x: Double, y circleY: Double, radius: Double, color: Color? = nil) -> Document {
