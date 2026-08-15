@@ -258,15 +258,21 @@ public final class Document {
 
     /// Flowing text, wrapped to the content width and broken across pages.
     @discardableResult
+    /// - Parameter leading: How far the cursor drops per line. Defaults to the
+    ///   document's, which is set for body text — so text asked for at a size
+    ///   larger than that would otherwise be overlapped by whatever came next.
+    ///   A heading is the usual case, and `nil` is wrong for it.
     public func text(
         _ text: String,
         size: Double? = nil,
         font: Font = .helvetica,
         color: Color? = nil,
         align: Align = .left,
-        face: EmbeddedFont? = nil
+        face: EmbeddedFont? = nil,
+        leading lineHeight: Double? = nil
     ) -> Document {
         let pointSize = size ?? fontSize
+        let leading = lineHeight ?? max(self.leading, pointSize * 1.25)
 
         for line in wrap(text, font: font, size: pointSize, width: contentWidth(), face: face) {
             breakIfNeeded(leading)

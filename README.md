@@ -37,6 +37,10 @@ This writes the PDF directly. It covers what a document actually needs — text 
 - 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
 - 🪶 **No package dependencies** — Foundation and the system's own frameworks, nothing from SwiftPM
 
+## Examples
+
+Nine pages showing what goes on a page — tables, curves, vector paths, typography, images, links — [as PDFs](Examples).
+
 ## Setting a document in a typeface
 
 The base-14 fonts are the default because a business document is better for
