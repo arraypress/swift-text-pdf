@@ -32,7 +32,13 @@ public final class Document {
     private var pages: [String] = []
 
     /// The stream currently being written.
-    private var current = ""
+    /// The page being written.
+    ///
+    /// Internal rather than private so the drawing extensions in this module
+    /// can wrap what they draw in `q`/`Q` — a rotation and an alpha are both
+    /// "everything until I say otherwise", which cannot be expressed through
+    /// a per-call parameter.
+    var current = ""
 
     /// Vertical position, in points from the page bottom.
     private var y: Double
@@ -120,6 +126,25 @@ public final class Document {
     /// is read aloud worse than one that declines to say.
     public var language: String = ""
 
+    /// Distinct alpha values used, in the order first asked for. Each becomes
+    /// one graphics state dictionary in the page resources.
+    var alphas: [Double] = []
+
+    /// Named points, for the reader's sidebar.
+    var bookmarks: [(title: String, page: Int, y: Double)] = []
+
+    /// Files carried inside the document.
+    var attachments: [Attachment] = []
+
+    /// Whether anything was drawn in a font the reader has to supply.
+    ///
+    /// Tracked because it is the one thing that makes a document unable to
+    /// claim PDF/A: the base-14 faces are not embedded and cannot be.
+    private(set) var usesBaseFonts = false
+
+    /// Notes that a run went out in one of the reader's own fonts.
+    func noteBaseFont() { usesBaseFonts = true }
+
     /// Which page the per-page callbacks are drawing, while they run.
     ///
     /// A footer registering a link would otherwise attach it to whatever page
@@ -203,6 +228,13 @@ public final class Document {
 
     public func pageCount() -> Int { pages.count + (current.isEmpty ? 0 : 1) }
 
+    /// The page being written, counting from one.
+    ///
+    /// Not ``pageCount()``, which counts pages that have something on them: a
+    /// bookmark set at the top of a fresh page belongs to that page, and
+    /// counting drawn pages would file it under the one before.
+    var writingPage: Int { pages.count + 1 }
+
     // MARK: Typeface
 
     /// The family's face at a weight, for passing to a drawing call.
@@ -236,6 +268,13 @@ public final class Document {
             return embeddedFont
         }
         return nil
+    }
+
+    /// The graphics state index for an alpha, registering it on first use.
+    func stateIndex(for alpha: Double) -> Int {
+        if let existing = alphas.firstIndex(where: { abs($0 - alpha) < 0.001 }) { return existing }
+        alphas.append(alpha)
+        return alphas.count - 1
     }
 
     /// The PDF resource name for a face, registering it on first use.
@@ -371,6 +410,10 @@ public final class Document {
         }
         if PDFEncoding.needsEmbedding(text) { record(text) }
         if family != nil { recordFallback(text) }
+
+        // Drawn in one of the reader's own fonts, which is what stops a
+        // document being able to claim PDF/A.
+        if !text.trimmingCharacters(in: .whitespaces).isEmpty { noteBaseFont() }
 
         let escaped = PDFEncoding.escape(text)
         var originX = x
@@ -514,15 +557,23 @@ public final class Document {
     }
 
     @discardableResult
+    /// - Parameter dash: On and off lengths, in points. `[3, 2]` is a dotted
+    ///   rule; `[]` is solid. A signature line, a cut-here, and the leader in
+    ///   a table of contents are all this.
     public func line(
         from x1: Double, _ y1: Double,
         to x2: Double, _ y2: Double,
         color: Color? = nil,
-        thickness: Double = 0.5
+        thickness: Double = 0.5,
+        dash: [Double] = []
     ) -> Document {
         let ink = color ?? .grey(190)
+        let pattern = dash.isEmpty
+            ? ""
+            : "[\(dash.map { String(format: "%.2F", PDFEncoding.number($0)) }.joined(separator: " "))] 0 d\n"
+        current += pattern.isEmpty ? "" : ""
         current += String(
-            format: "q\n%@ RG\n%.2F w\n%.2F %.2F m\n%.2F %.2F l\nS\nQ\n",
+            format: "q\n%@ RG\n%.2F w\n\(pattern)%.2F %.2F m\n%.2F %.2F l\nS\nQ\n",
             ink.operands,
             PDFEncoding.number(thickness),
             PDFEncoding.number(x1), PDFEncoding.number(y1),
@@ -823,7 +874,15 @@ public final class Document {
     // MARK: Output
 
     /// The finished PDF bytes.
-    public func render(metadata: [String: String] = [:], creationDate: Date = Date()) -> Data {
+    /// - Parameter standard: Which standard the file claims. `.pdfA3b` also
+    ///   writes the metadata packet, the sRGB output intent and the file
+    ///   identifier that conformance requires — see
+    ///   ``conformanceIssues(for:)`` for what it cannot fix on your behalf.
+    public func render(
+        metadata: [String: String] = [:],
+        creationDate: Date = Date(),
+        standard: Standard = .none
+    ) -> Data {
         var finished = pages
         if !current.isEmpty || finished.isEmpty { finished.append(current) }
 
@@ -841,7 +900,11 @@ public final class Document {
             embedded: embeddedFaces,
             images: embeddedImages,
             annotations: annotations,
-            language: language
+            language: language,
+            alphas: alphas,
+            outline: bookmarks,
+            attachments: attachments,
+            standard: standard
         )
     }
 

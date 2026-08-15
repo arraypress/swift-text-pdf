@@ -35,7 +35,49 @@ This writes the PDF directly. It covers what a document actually needs — text 
 - 📷 **JPEG and PNG** — JPEG passed through undecoded, PNG decoded and re-deflated with transparency intact
 - ⬌ **Justified text** — set word by word, so it works with an embedded family too
 - 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
+- 💧 **Watermarks** — rotation and constant alpha, so DRAFT sits behind the content rather than over the total
+- ▦ **QR codes** — drawn as vector squares, sharp at any zoom; a bitmap at the wrong scale is a code a scanner works for
+- 📎 **Attachments and PDF/A-3** — carry the XML inside the document, which is what an e-invoice is
+- 🔖 **Bookmarks** — an outline for anything longer than a scroll
+- ┈ **Dashed rules** — a signature line, a cut-here, a leader
 - 🪶 **No package dependencies** — Foundation and the system's own frameworks, nothing from SwiftPM
+
+## An e-invoice, and other files carried inside
+
+Germany's e-invoicing mandate is phasing in, France's follows, Italy's has been running for years — and what they want is the *structured* half of an invoice. Factur-X and ZUGFeRD say how: a PDF/A-3 with the invoice XML attached, so one file is both the document a person reads and the record a system parses.
+
+```swift
+pdf.attach(xml, name: "factur-x.xml", mimeType: "text/xml", relationship: .alternative)
+let data = pdf.render(metadata: ["Title": "INV-2026-0042"], standard: .pdfA3b)
+```
+
+That writes the metadata packet, the sRGB output intent and the file identifier conformance requires. What it cannot do on your behalf is embed the reader's own fonts, so:
+
+```swift
+pdf.conformanceIssues(for: .pdfA3b)
+// ["Text is set in the base-14 fonts, which are not embedded. …"]
+```
+
+A document set in Helvetica cannot be PDF/A whatever else it does — the base-14 faces belong to the reader, and PDF/A carries everything it needs. That is reported rather than claimed falsely.
+
+## Watermarks, and marks on the page
+
+```swift
+pdf.watermark("DRAFT")                       // behind the content, 45°, faint
+pdf.watermark("VOID", over: true)            // over it, when obscuring is the point
+pdf.transparent(0.1) { … }                   // constant alpha for anything
+pdf.rotated(by: 90, around: x, y) { … }      // a turned column heading
+pdf.line(from: x, y, to: x2, y, dash: [2, 2])
+pdf.bookmark("Statement")
+```
+
+## Scan to pay
+
+```swift
+pdf.qr(epcPayload, x: 48, y: 560, size: 150)
+```
+
+Drawn as vector squares rather than embedded as a picture, so it stays sharp at any zoom and on any printer. Returns `false` rather than drawing an unreadable smudge when the text will not fit the densest grid.
 
 ## Examples
 

@@ -10,6 +10,21 @@ import Foundation
 /// Prepares text for a PDF string operator.
 enum PDFEncoding {
 
+    /// A PDF name, with the characters a name may not carry written as `#xx`.
+    ///
+    /// A MIME type is the case that matters: `application/xml` has a slash in
+    /// it, which starts a name rather than sitting inside one.
+    static func name(_ text: String) -> String {
+        var out = ""
+        for byte in Array(text.utf8) {
+            let scalar = Unicode.Scalar(byte)
+            let plain = (byte > 0x21 && byte < 0x7E)
+                && !"#()<>[]{}/%".unicodeScalars.contains(scalar)
+            out += plain ? String(Character(scalar)) : String(format: "#%02X", byte)
+        }
+        return out
+    }
+
     /// Transcodes to Windows-1252, strips control characters, and escapes the
     /// three bytes that would end the string early.
     ///
