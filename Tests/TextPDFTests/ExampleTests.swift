@@ -550,6 +550,42 @@ final class ExampleTests: XCTestCase {
         try put(pdf, "attachments.pdf", ink: 0.002)
     }
 
+    func testALockedDocument() throws {
+        let pdf = page("Locked", "AES-256 — every stream and every string.")
+
+        pdf.text("This file is encrypted. The password is \u{201C}sample\u{201D}, which is "
+                 + "written here because an example nobody can open is not an example — and "
+                 + "because a password printed beside the document is exactly as useful as "
+                 + "most of the passwords this feature is used with.", size: 9.5)
+        pdf.gap(18)
+
+        pdf.text("What it protects", size: 10, font: .helveticaBold)
+        pdf.gap(8)
+        pdf.text("The document cannot be opened without it, so it is exactly as strong as the "
+                 + "password. The common use — a payslip keyed to a date of birth or a national "
+                 + "insurance number — is guessed offline in about as long as it takes to read "
+                 + "this paragraph. That satisfies a policy. It is not secrecy.", size: 9.5)
+        pdf.gap(18)
+
+        pdf.text("What is deliberately missing", size: 10, font: .helveticaBold)
+        pdf.gap(8)
+        pdf.text("No owner password and no permission flags: \u{201C}printing not allowed\u{201D} "
+                 + "is enforced only by readers that feel like it. No RC4 and no AES-128: they "
+                 + "exist for readers from 2005.", size: 9.5)
+
+        // Written by hand rather than through `put`, because the checks there
+        // read the page — and the point of this one is that nothing can.
+        let data = pdf.render(metadata: ["Title": "A locked document"],
+                              creationDate: Self.stamped, password: "sample")
+
+        let document = try XCTUnwrap(PDFDocument(data: data))
+        XCTAssertTrue(document.isLocked)
+        XCTAssertTrue(document.unlock(withPassword: "sample"))
+
+        guard writing else { return }
+        try data.write(to: directory.appendingPathComponent("locked.pdf"))
+    }
+
     // MARK: A family to draw with
 
     private func family() throws -> FontFamily {
