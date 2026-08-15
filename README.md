@@ -140,6 +140,8 @@ Whatever still could not be drawn is listed in `document.substitutions` after re
 
 TrueType outlines only — a `.ttf`. PostScript-outline `.otf` files and `.ttc` collections are reported rather than embedded incorrectly.
 
+**Variable fonts are refused too.** One carries a single set of outlines plus the deltas that move them between weights; subsetting keeps the outlines and drops the deltas, so the file would embed cleanly and render every weight as the default instance — a document asking for bold and quietly getting regular. Most projects ship static instances alongside, and that is what to point at. Worth knowing because Google Fonts now distributes nothing else, and most of macOS's own `.ttf` files are variable.
+
 ## Requirements
 
 - macOS 14+ / iOS 17+

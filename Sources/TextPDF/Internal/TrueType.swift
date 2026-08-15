@@ -73,6 +73,9 @@ struct TrueTypeFont {
     /// Vertical metrics, scaled to 1/1000 em.
     let metrics: FontMetrics
 
+    /// Whether the file is a variable font, which this cannot subset honestly.
+    let isVariable: Bool
+
     /// Offsets into `glyf` for every glyph, `glyphCount + 1` entries.
     private let loca: [Int]
     private let glyfRange: Range<Int>
@@ -111,6 +114,13 @@ struct TrueTypeFont {
               let hhea = found["hhea"], let hmtx = found["hmtx"],
               let locaRange = found["loca"], let glyf = found["glyf"]
         else { return nil }
+
+        // A variable font carries one set of outlines plus the deltas that
+        // move them between weights. Subsetting keeps the outlines and drops
+        // the deltas, so the file would embed correctly and render every
+        // weight as the default instance — a document asking for bold and
+        // getting regular, with nothing to indicate it. Refused instead.
+        isVariable = found["fvar"] != nil
 
         unitsPerEm = Int(data.u16(head.lowerBound + 18))
         let longLoca = data.u16(head.lowerBound + 50) == 1

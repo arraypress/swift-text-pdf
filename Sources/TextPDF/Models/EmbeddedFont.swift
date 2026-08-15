@@ -65,6 +65,9 @@ public final class EmbeddedFont: @unchecked Sendable {
         guard let parsed = TrueTypeFont(data: data) else {
             throw EmbeddingError.unsupportedFormat(url.lastPathComponent)
         }
+        guard !parsed.isVariable else {
+            throw EmbeddingError.variableFont(url.lastPathComponent)
+        }
         guard let provider = CGDataProvider(data: data as CFData),
               let cgFont = CGFont(provider)
         else {
@@ -230,11 +233,14 @@ public enum EmbeddingError: Error, LocalizedError, Equatable {
     case unreadable(String)
     case unsupportedFormat(String)
     case unsupportedScript(String)
+    case variableFont(String)
 
     public var errorDescription: String? {
         switch self {
         case .unreadable(let name):
             return "Could not read \(name)."
+        case .variableFont(let name):
+            return "\(name) is a variable font. Subsetting keeps its outlines and drops the deltas that make a weight, so every weight would render as the default instance. Use a static instance — most projects ship them alongside, and Google Fonts now ships only the variable file."
         case .unsupportedFormat(let name):
             return "\(name) is not a TrueType font. PostScript-outline .otf and .ttc collections are not supported; use a .ttf."
         case .unsupportedScript(let script):

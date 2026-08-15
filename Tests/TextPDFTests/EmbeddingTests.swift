@@ -98,6 +98,30 @@ final class EmbeddingTests: XCTestCase {
         }
     }
 
+    func testRefusesVariableFonts() {
+        // A variable font parses as an ordinary TrueType and subsets without
+        // complaint, because the outlines are all there — what is dropped is
+        // the delta data that makes one weight differ from another. Embedding
+        // it would render every weight as the default instance, so the fault
+        // shows up as a document that is simply not bold.
+        //
+        // Not a corner case: most of the system's own .ttf files are variable,
+        // and Google Fonts now ships nothing else.
+        let path = "/System/Library/Fonts/NewYork.ttf"
+        guard FileManager.default.fileExists(atPath: path) else { return }
+
+        XCTAssertThrowsError(try EmbeddedFont.load(URL(fileURLWithPath: path))) { error in
+            XCTAssertEqual(error as? EmbeddingError, .variableFont("NewYork.ttf"))
+        }
+    }
+
+    func testStaticFacesAreStillAccepted() throws {
+        // The guard above must not reject ordinary static fonts.
+        let path = "/System/Library/Fonts/Supplemental/Arial.ttf"
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: path), "Arial is not installed")
+        XCTAssertNoThrow(try EmbeddedFont.load(URL(fileURLWithPath: path)))
+    }
+
     func testMissingFileIsReportedAsUnreadable() {
         XCTAssertThrowsError(try EmbeddedFont.load(URL(fileURLWithPath: "/no/such/font.ttf"))) { error in
             XCTAssertEqual(error as? EmbeddingError, .unreadable("font.ttf"))
