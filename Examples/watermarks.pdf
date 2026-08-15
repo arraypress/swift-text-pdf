@@ -19,16 +19,29 @@ endobj
 <</Producer (arraypress/swift-text-pdf) /CreationDate (D:20260412132000Z)>>
 endobj
 7 0 obj
-<</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>>>> /Contents 8 0 R>>
+<</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>> /ExtGState <</GS0 <</Type /ExtGState /ca 0.600 /CA 0.600>> /GS1 <</Type /ExtGState /ca 0.350 /CA 0.350>> /GS2 <</Type /ExtGState /ca 0.180 /CA 0.180>> /GS3 <</Type /ExtGState /ca 0.080 /CA 0.080>>>>>> /Contents 8 0 R>>
 endobj
 8 0 obj
-<</Length 2200>>
+<</Length 2923>>
 stream
+q
+/GS3 gs
+q
+0.70711 0.70711 -0.70711 0.70711 384.83 -87.17 cm
+q
+BT
+/F2 96.00 Tf
+135.02 386.38 Td
+(DRAFT) Tj
+ET
+Q
+Q
+Q
 q
 BT
 /F2 20.00 Tf
 48.00 778.29 Td
-(Tables) Tj
+(Watermarks) Tj
 ET
 Q
 q
@@ -36,219 +49,219 @@ q
 BT
 /F1 9.50 Tf
 48.00 759.48 Td
-(Proportional columns, alignment, striping and a total row.) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-48.00 722.30 Td
-(Description) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-345.38 722.30 Td
-(Qty) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-405.55 722.30 Td
-(Unit price) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-509.51 722.30 Td
-(Amount) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 734.89 m
-547.28 734.89 l
-S
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 716.89 m
-547.28 716.89 l
-S
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 704.30 Td
-(Document generation licence — annual) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 704.30 Td
-(1) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-415.53 704.30 Td
-(£149.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 704.30 Td
-(£149.00) Tj
-ET
-Q
-q
-0.973 0.973 0.973 rg
-48.00 680.89 499.28 18.00 re
-f
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 686.30 Td
-(Template design and setup) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 686.30 Td
-(6) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-421.09 686.30 Td
-(£70.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 686.30 Td
-(£420.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 668.30 Td
-(Priority support — first year) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 668.30 Td
-(1) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-415.53 668.30 Td
-(£180.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 668.30 Td
-(£180.00) Tj
-ET
-Q
-q
-0.973 0.973 0.973 rg
-48.00 644.89 499.28 18.00 re
-f
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 650.30 Td
-(Data migration, per environment) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 650.30 Td
-(3) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-421.09 650.30 Td
-(£95.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 650.30 Td
-(£285.00) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 644.89 m
-547.28 644.89 l
-S
-Q
-q
-0.078 0.078 0.078 rg
-BT
-/F2 10.00 Tf
-48.00 632.30 Td
-(Total) Tj
-ET
-Q
-q
-0.078 0.078 0.078 rg
-BT
-/F2 10.00 Tf
-502.80 632.30 Td
-(£1,034.00) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 626.89 m
-547.28 626.89 l
-S
-Q
-q
-BT
-/F1 9.50 Tf
-48.00 595.48 Td
-(Columns are fractions of the measure, not points, so the table fits whatever page and margin it is given. A cell too long) Tj
+(Rotation and constant alpha — what DRAFT across a page is made of.) Tj
 ET
 Q
 q
 BT
 /F1 9.50 Tf
-48.00 581.48 Td
-(for its column is measured and truncated rather than allowed to collide with the next one.) Tj
+48.00 727.48 Td
+(A watermark says this copy is not the record. It is drawn behind the content by default, because a mark over a total is) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 713.48 Td
+(a mark that costs a phone call — pass `over: true` for VOID, where obscuring the document is the point.) Tj
+ET
+Q
+q
+BT
+/F2 10.00 Tf
+48.00 677.09 Td
+(The two primitives under it) Tj
+ET
+Q
+q
+0.122 0.227 0.373 rg
+48.00 616.89 76.00 44.00 re
+f
+Q
+q
+0.510 0.510 0.510 rg
+BT
+/F1 8.00 Tf
+48.00 604.89 Td
+(100%) Tj
+ET
+Q
+q
+/GS0 gs
+q
+0.122 0.227 0.373 rg
+136.00 616.89 76.00 44.00 re
+f
+Q
+Q
+q
+0.510 0.510 0.510 rg
+BT
+/F1 8.00 Tf
+136.00 604.89 Td
+(60%) Tj
+ET
+Q
+q
+/GS1 gs
+q
+0.122 0.227 0.373 rg
+224.00 616.89 76.00 44.00 re
+f
+Q
+Q
+q
+0.510 0.510 0.510 rg
+BT
+/F1 8.00 Tf
+224.00 604.89 Td
+(35%) Tj
+ET
+Q
+q
+/GS2 gs
+q
+0.122 0.227 0.373 rg
+312.00 616.89 76.00 44.00 re
+f
+Q
+Q
+q
+0.510 0.510 0.510 rg
+BT
+/F1 8.00 Tf
+312.00 604.89 Td
+(18%) Tj
+ET
+Q
+q
+/GS3 gs
+q
+0.122 0.227 0.373 rg
+400.00 616.89 76.00 44.00 re
+f
+Q
+Q
+q
+0.510 0.510 0.510 rg
+BT
+/F1 8.00 Tf
+400.00 604.89 Td
+(8%) Tj
+ET
+Q
+q
+0.471 0.471 0.471 rg
+BT
+/F1 8.50 Tf
+48.00 576.26 Td
+(transparent\(_:\) — a graphics state, so the same value is named once however often it is used) Tj
+ET
+Q
+q
+1.00000 0.00000 -0.00000 1.00000 0.00 0.00 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+0.70711 0.70711 -0.70711 0.70711 392.38 -1.50 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+0.00000 1.00000 -1.00000 0.00000 670.89 274.89 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+-0.70711 0.70711 -0.70711 -0.70711 672.39 667.27 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+-1.00000 0.00000 -0.00000 -1.00000 396.00 945.78 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+-0.70711 -0.70711 0.70711 -0.70711 3.62 947.28 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+-0.00000 -1.00000 1.00000 -0.00000 -274.89 670.89 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+0.70711 -0.70711 0.70711 0.70711 -276.39 278.51 cm
+q
+0.275 0.275 0.275 rg
+BT
+/F1 9.00 Tf
+210.00 469.89 Td
+(rotated) Tj
+ET
+Q
+Q
+q
+0.690 0.000 0.125 rg
+200.000 472.890 m
+200.000 473.995 199.105 474.890 198.000 474.890 c
+196.895 474.890 196.000 473.995 196.000 472.890 c
+196.000 471.785 196.895 470.890 198.000 470.890 c
+199.105 470.890 200.000 471.785 200.000 472.890 c
+h
+f
+Q
+q
+0.471 0.471 0.471 rg
+BT
+/F1 8.50 Tf
+48.00 374.26 Td
+(rotated\(by:around:\) — the page is pinned at the red dot and turned about it) Tj
 ET
 Q
 
@@ -264,9 +277,9 @@ xref
 0000002199 00000 n 
 0000003214 00000 n 
 0000003305 00000 n 
-0000003421 00000 n 
+0000003620 00000 n 
 trailer
 <</Size 9 /Root 1 0 R /Info 6 0 R /ID [<2EA2822A5D18719F8E567EE73300560B> <2EA2822A5D18719F8E567EE73300560B>]>>
 startxref
-5671
+6593
 %%EOF

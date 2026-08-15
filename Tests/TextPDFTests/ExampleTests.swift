@@ -392,6 +392,164 @@ final class ExampleTests: XCTestCase {
         try put(pdf, "links.pdf")
     }
 
+
+    // MARK: Marks on the page
+
+    func testWatermarks() throws {
+        let pdf = page("Watermarks", "Rotation and constant alpha — what DRAFT across a page is made of.")
+        pdf.watermark("DRAFT")
+
+        pdf.text("A watermark says this copy is not the record. It is drawn behind the "
+                 + "content by default, because a mark over a total is a mark that costs a "
+                 + "phone call — pass `over: true` for VOID, where obscuring the document is "
+                 + "the point.", size: 9.5)
+        pdf.gap(22)
+
+        pdf.text("The two primitives under it", size: 10, font: .helveticaBold)
+        pdf.gap(10)
+
+        // Alpha, as a row of the same square at descending opacity.
+        var x = pdf.left()
+        for alpha in [1.0, 0.6, 0.35, 0.18, 0.08] {
+            pdf.transparent(alpha) {
+                pdf.rect(x: x, y: pdf.cursor() - 44, width: 76, height: 44,
+                         color: .hex("#1F3A5F"))
+            }
+            pdf.textAt("\(Int(alpha * 100))%", x: x, y: pdf.cursor() - 56, size: 8,
+                       color: .grey(130))
+            x += 88
+        }
+
+        pdf.move(to: pdf.cursor() - 78)
+        pdf.text("transparent(_:) — a graphics state, so the same value is named once however "
+                 + "often it is used", size: 8.5, color: .grey(120))
+        pdf.gap(26)
+
+        // Rotation, as the same word about one point.
+        let centre = (x: pdf.left() + 150, y: pdf.cursor() - 70)
+        for angle in stride(from: 0.0, to: 360.0, by: 45.0) {
+            pdf.rotated(by: angle, around: centre.x, centre.y) {
+                pdf.textAt("rotated", x: centre.x + 12, y: centre.y - 3, size: 9,
+                           color: .grey(70))
+            }
+        }
+        pdf.circle(x: centre.x, y: centre.y, radius: 2, color: .hex("#B00020"))
+
+        pdf.move(to: centre.y - 92)
+        pdf.text("rotated(by:around:) — the page is pinned at the red dot and turned about it",
+                 size: 8.5, color: .grey(120))
+
+        try put(pdf, "watermarks.pdf", ink: 0.02)
+    }
+
+    func testQRCodes() throws {
+        let pdf = page("QR codes", "Drawn as vector squares, so they survive a printer and a photocopier.")
+
+        let payload = "BCD\n002\n1\nSCT\n\nSwiftInvoices Ltd\nDE89370400440532013000\nEUR898.80\n\n\nINV-2026-0042"
+
+        var x = pdf.left()
+        for size in [70.0, 100.0, 130.0] {
+            XCTAssertTrue(pdf.qr(payload, x: x, y: pdf.cursor() - size, size: size))
+            pdf.textAt("\(Int(size))pt", x: x, y: pdf.cursor() - size - 12, size: 8,
+                       color: .grey(130))
+            x += size + 26
+        }
+
+        pdf.move(to: pdf.cursor() - 156)
+        pdf.text("An EPC payload — what a European banking app scans for a SEPA credit "
+                 + "transfer. Seventy points is about the floor for a printed page read at "
+                 + "arm's length.", size: 9.5)
+        pdf.gap(24)
+
+        pdf.text("Correction levels", size: 10, font: .helveticaBold)
+        pdf.gap(10)
+
+        x = pdf.left()
+        for correction in Document.QRCorrection.allCases {
+            pdf.qr("INV-2026-0042", x: x, y: pdf.cursor() - 88, size: 88,
+                   correction: correction, color: .hex("#1F3A5F"))
+            pdf.textAt(correction.rawValue, x: x, y: pdf.cursor() - 100, size: 8,
+                       color: .grey(130))
+            x += 104
+        }
+
+        pdf.move(to: pdf.cursor() - 118)
+        pdf.text("The same string at four levels of damage tolerance. The cost is capacity: "
+                 + "a denser grid holds less. Printed documents get folded and stapled, so "
+                 + "the default is medium rather than low.", size: 9.5)
+
+        try put(pdf, "qr.pdf", ink: 0.05)
+    }
+
+    func testBookmarks() throws {
+        let pdf = page("Bookmarks", "An outline, for anything longer than a scroll.")
+        pdf.bookmark("Introduction")
+
+        pdf.text("A reader shows these in its sidebar. Worth having the moment a document is "
+                 + "longer than a scroll — a statement of account over twelve pages, an "
+                 + "academic CV, a consignment with four hundred lines.", size: 9.5)
+        pdf.gap(14)
+        pdf.text("This document has three, one per page. Open the sidebar.", size: 9.5,
+                 color: .grey(120))
+
+        for section in ["Detail", "Summary"] {
+            pdf.pageBreak()
+            pdf.bookmark(section)
+            pdf.text(section, size: 20, font: .helveticaBold, leading: 26)
+            pdf.gap(6)
+            pdf.text("Bookmarked at the top of this page. A bookmark records the page being "
+                     + "written and the height it was set at, so it lands where it was put "
+                     + "rather than at the top of whatever page happens to be current.",
+                     size: 9.5)
+        }
+
+        try put(pdf, "bookmarks.pdf", pages: 3, ink: 0.001)
+    }
+
+    func testAttachments() throws {
+        let pdf = page("Attachments", "A file carried inside the document — which is what an e-invoice is.")
+
+        let xml = Data("""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rsm:CrossIndustryInvoice>
+              <!-- The machine-readable half. A reader opens this; a person reads the page. -->
+            </rsm:CrossIndustryInvoice>
+            """.utf8)
+
+        pdf.attach(xml, name: "factur-x.xml", mimeType: "text/xml",
+                   description: "The invoice, as data", relationship: .alternative)
+
+        pdf.text("There is an XML file inside this PDF. Any reader with an attachments panel "
+                 + "will offer it; a Factur-X reader finds it without one, by following the "
+                 + "/AF entry and the relationship it was attached with.", size: 9.5)
+        pdf.gap(18)
+
+        pdf.text("Why it matters", size: 10, font: .helveticaBold)
+        pdf.gap(8)
+        pdf.text("Germany's e-invoicing mandate is phasing in, France's follows, Italy's has "
+                 + "been running for years. All of them want the structured invoice. Factur-X "
+                 + "says how: one PDF/A-3 carrying the invoice as XML, so the same file is "
+                 + "both the document a person reads and the record a system parses.", size: 9.5)
+        pdf.gap(18)
+
+        pdf.text("What this page cannot claim", size: 10, font: .helveticaBold)
+        pdf.gap(8)
+
+        // Honest rather than convenient: this page is set in the base-14
+        // fonts, so it is not written as PDF/A — and the library says so
+        // rather than claiming a standard it fails.
+        for issue in pdf.conformanceIssues(for: .pdfA3b) {
+            pdf.block("• " + issue, x: pdf.left(), width: pdf.contentWidth(), size: 9,
+                      color: .grey(80), leading: 12)
+        }
+        pdf.gap(6)
+        pdf.text("So this example carries its attachment but does not claim PDF/A-3. "
+                 + "swift-invoice-pdf has one that does, set in an embedded face.",
+                 size: 9.5, color: .grey(120))
+
+        try put(pdf, "attachments.pdf", ink: 0.002)
+    }
+
     // MARK: A family to draw with
 
     private func family() throws -> FontFamily {

@@ -1,10 +1,10 @@
 %PDF-1.4
 %ту╧╙
 1 0 obj
-<</Type /Catalog /Pages 2 0 R>>
+<</Type /Catalog /Pages 2 0 R /Outlines 13 0 R /PageMode /UseOutlines>>
 endobj
 2 0 obj
-<</Type /Pages /Kids [7 0 R] /Count 1 /MediaBox [0 0 595.28 841.89]>>
+<</Type /Pages /Kids [7 0 R 9 0 R 11 0 R] /Count 3 /MediaBox [0 0 595.28 841.89]>>
 endobj
 3 0 obj
 <</Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 255 /Widths [278 278 355 556 556 889 667 191 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 278 278 584 584 584 556 1015 667 667 722 722 667 611 778 722 278 500 667 556 833 722 778 667 778 722 667 611 722 667 944 667 667 611 278 278 278 469 556 333 556 556 500 556 556 278 556 556 222 222 500 222 833 556 556 556 556 333 500 278 556 500 722 500 500 500 334 260 334 584 0 744 0 222 556 333 1000 556 556 333 1000 667 333 1000 0 611 0 0 222 222 333 333 350 556 1000 333 1000 500 333 944 0 500 667 278 333 556 556 556 556 260 556 333 737 370 556 584 333 737 552 400 549 333 333 333 576 537 333 333 333 365 556 834 834 834 611 667 667 667 667 667 667 1000 722 667 667 667 667 278 278 278 278 722 722 778 778 778 778 778 584 778 722 722 722 722 667 667 611 556 556 556 556 556 556 889 500 556 556 556 556 278 278 278 278 556 556 556 556 556 556 556 549 611 556 556 556 556 500 556 500]>>
@@ -22,13 +22,13 @@ endobj
 <</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>>>> /Contents 8 0 R>>
 endobj
 8 0 obj
-<</Length 2200>>
+<</Length 567>>
 stream
 q
 BT
 /F2 20.00 Tf
 48.00 778.29 Td
-(Tables) Tj
+(Bookmarks) Tj
 ET
 Q
 q
@@ -36,237 +36,127 @@ q
 BT
 /F1 9.50 Tf
 48.00 759.48 Td
-(Proportional columns, alignment, striping and a total row.) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-48.00 722.30 Td
-(Description) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-345.38 722.30 Td
-(Qty) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-405.55 722.30 Td
-(Unit price) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-509.51 722.30 Td
-(Amount) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 734.89 m
-547.28 734.89 l
-S
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 716.89 m
-547.28 716.89 l
-S
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 704.30 Td
-(Document generation licence Ч annual) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 704.30 Td
-(1) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-415.53 704.30 Td
-(г149.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 704.30 Td
-(г149.00) Tj
-ET
-Q
-q
-0.973 0.973 0.973 rg
-48.00 680.89 499.28 18.00 re
-f
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 686.30 Td
-(Template design and setup) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 686.30 Td
-(6) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-421.09 686.30 Td
-(г70.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 686.30 Td
-(г420.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 668.30 Td
-(Priority support Ч first year) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 668.30 Td
-(1) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-415.53 668.30 Td
-(г180.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 668.30 Td
-(г180.00) Tj
-ET
-Q
-q
-0.973 0.973 0.973 rg
-48.00 644.89 499.28 18.00 re
-f
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 650.30 Td
-(Data migration, per environment) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 650.30 Td
-(3) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-421.09 650.30 Td
-(г95.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 650.30 Td
-(г285.00) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 644.89 m
-547.28 644.89 l
-S
-Q
-q
-0.078 0.078 0.078 rg
-BT
-/F2 10.00 Tf
-48.00 632.30 Td
-(Total) Tj
-ET
-Q
-q
-0.078 0.078 0.078 rg
-BT
-/F2 10.00 Tf
-502.80 632.30 Td
-(г1,034.00) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 626.89 m
-547.28 626.89 l
-S
-Q
-q
-BT
-/F1 9.50 Tf
-48.00 595.48 Td
-(Columns are fractions of the measure, not points, so the table fits whatever page and margin it is given. A cell too long) Tj
+(An outline, for anything longer than a scroll.) Tj
 ET
 Q
 q
 BT
 /F1 9.50 Tf
-48.00 581.48 Td
-(for its column is measured and truncated rather than allowed to collide with the next one.) Tj
+48.00 727.48 Td
+(A reader shows these in its sidebar. Worth having the moment a document is longer than a scroll Ч a statement of) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 713.48 Td
+(account over twelve pages, an academic CV, a consignment with four hundred lines.) Tj
+ET
+Q
+q
+0.471 0.471 0.471 rg
+BT
+/F1 9.50 Tf
+48.00 685.48 Td
+(This document has three, one per page. Open the sidebar.) Tj
 ET
 Q
 
 endstream
 endobj
+9 0 obj
+<</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>>>> /Contents 10 0 R>>
+endobj
+10 0 obj
+<</Length 337>>
+stream
+q
+BT
+/F2 20.00 Tf
+48.00 778.29 Td
+(Detail) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 754.48 Td
+(Bookmarked at the top of this page. A bookmark records the page being written and the height it was set at, so it lands) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 740.48 Td
+(where it was put rather than at the top of whatever page happens to be current.) Tj
+ET
+Q
+
+endstream
+endobj
+11 0 obj
+<</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>>>> /Contents 12 0 R>>
+endobj
+12 0 obj
+<</Length 338>>
+stream
+q
+BT
+/F2 20.00 Tf
+48.00 778.29 Td
+(Summary) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 754.48 Td
+(Bookmarked at the top of this page. A bookmark records the page being written and the height it was set at, so it lands) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 740.48 Td
+(where it was put rather than at the top of whatever page happens to be current.) Tj
+ET
+Q
+
+endstream
+endobj
+13 0 obj
+<</Type /Outlines /First 14 0 R /Last 16 0 R /Count 3>>
+endobj
+14 0 obj
+<</Title (Introduction) /Parent 13 0 R /Next 15 0 R /Dest [7 0 R /XYZ 0 734.89 0]>>
+endobj
+15 0 obj
+<</Title (Detail) /Parent 13 0 R /Prev 14 0 R /Next 16 0 R /Dest [9 0 R /XYZ 0 793.89 0]>>
+endobj
+16 0 obj
+<</Title (Summary) /Parent 13 0 R /Prev 15 0 R /Dest [11 0 R /XYZ 0 793.89 0]>>
+endobj
 xref
-0 9
+0 17
 0000000000 65535 f 
 0000000015 00000 n 
-0000000062 00000 n 
-0000000147 00000 n 
-0000001171 00000 n 
-0000002199 00000 n 
-0000003214 00000 n 
-0000003305 00000 n 
-0000003421 00000 n 
+0000000102 00000 n 
+0000000200 00000 n 
+0000001224 00000 n 
+0000002252 00000 n 
+0000003267 00000 n 
+0000003358 00000 n 
+0000003474 00000 n 
+0000004090 00000 n 
+0000004207 00000 n 
+0000004594 00000 n 
+0000004712 00000 n 
+0000005100 00000 n 
+0000005172 00000 n 
+0000005272 00000 n 
+0000005379 00000 n 
 trailer
-<</Size 9 /Root 1 0 R /Info 6 0 R /ID [<2EA2822A5D18719F8E567EE73300560B> <2EA2822A5D18719F8E567EE73300560B>]>>
+<</Size 17 /Root 1 0 R /Info 6 0 R /ID [<2EA2A22A5D1875058E60CB4DCA220569> <2EA2A22A5D1875058E60CB4DCA220569>]>>
 startxref
-5671
+5475
 %%EOF

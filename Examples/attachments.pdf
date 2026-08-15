@@ -1,7 +1,7 @@
 %PDF-1.4
 %ту╧╙
 1 0 obj
-<</Type /Catalog /Pages 2 0 R>>
+<</Type /Catalog /Pages 2 0 R /AF [9 0 R] /Names <</EmbeddedFiles <</Names [(factur-x.xml) 9 0 R]>>>>>>
 endobj
 2 0 obj
 <</Type /Pages /Kids [7 0 R] /Count 1 /MediaBox [0 0 595.28 841.89]>>
@@ -22,13 +22,13 @@ endobj
 <</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>>>> /Contents 8 0 R>>
 endobj
 8 0 obj
-<</Length 2200>>
+<</Length 1567>>
 stream
 q
 BT
 /F2 20.00 Tf
 48.00 778.29 Td
-(Tables) Tj
+(Attachments) Tj
 ET
 Q
 q
@@ -36,237 +36,120 @@ q
 BT
 /F1 9.50 Tf
 48.00 759.48 Td
-(Proportional columns, alignment, striping and a total row.) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-48.00 722.30 Td
-(Description) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-345.38 722.30 Td
-(Qty) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-405.55 722.30 Td
-(Unit price) Tj
-ET
-Q
-q
-0.118 0.118 0.118 rg
-BT
-/F2 10.00 Tf
-509.51 722.30 Td
-(Amount) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 734.89 m
-547.28 734.89 l
-S
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 716.89 m
-547.28 716.89 l
-S
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 704.30 Td
-(Document generation licence Ч annual) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 704.30 Td
-(1) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-415.53 704.30 Td
-(г149.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 704.30 Td
-(г149.00) Tj
-ET
-Q
-q
-0.973 0.973 0.973 rg
-48.00 680.89 499.28 18.00 re
-f
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 686.30 Td
-(Template design and setup) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 686.30 Td
-(6) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-421.09 686.30 Td
-(г70.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 686.30 Td
-(г420.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 668.30 Td
-(Priority support Ч first year) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 668.30 Td
-(1) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-415.53 668.30 Td
-(г180.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 668.30 Td
-(г180.00) Tj
-ET
-Q
-q
-0.973 0.973 0.973 rg
-48.00 644.89 499.28 18.00 re
-f
-Q
-q
-BT
-/F1 10.00 Tf
-48.00 650.30 Td
-(Data migration, per environment) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-356.49 650.30 Td
-(3) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-421.09 650.30 Td
-(г95.00) Tj
-ET
-Q
-q
-BT
-/F1 10.00 Tf
-511.14 650.30 Td
-(г285.00) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 644.89 m
-547.28 644.89 l
-S
-Q
-q
-0.078 0.078 0.078 rg
-BT
-/F2 10.00 Tf
-48.00 632.30 Td
-(Total) Tj
-ET
-Q
-q
-0.078 0.078 0.078 rg
-BT
-/F2 10.00 Tf
-502.80 632.30 Td
-(г1,034.00) Tj
-ET
-Q
-q
-0.235 0.235 0.235 RG
-0.75 w
-48.00 626.89 m
-547.28 626.89 l
-S
-Q
-q
-BT
-/F1 9.50 Tf
-48.00 595.48 Td
-(Columns are fractions of the measure, not points, so the table fits whatever page and margin it is given. A cell too long) Tj
+(A file carried inside the document Ч which is what an e-invoice is.) Tj
 ET
 Q
 q
 BT
 /F1 9.50 Tf
-48.00 581.48 Td
-(for its column is measured and truncated rather than allowed to collide with the next one.) Tj
+48.00 727.48 Td
+(There is an XML file inside this PDF. Any reader with an attachments panel will offer it; a Factur-X reader finds it) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 713.48 Td
+(without one, by following the /AF entry and the relationship it was attached with.) Tj
+ET
+Q
+q
+BT
+/F2 10.00 Tf
+48.00 681.09 Td
+(Why it matters) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 659.48 Td
+(Germany's e-invoicing mandate is phasing in, France's follows, Italy's has been running for years. All of them want the) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 645.48 Td
+(structured invoice. Factur-X says how: one PDF/A-3 carrying the invoice as XML, so the same file is both the) Tj
+ET
+Q
+q
+BT
+/F1 9.50 Tf
+48.00 631.48 Td
+(document a person reads and the record a system parses.) Tj
+ET
+Q
+q
+BT
+/F2 10.00 Tf
+48.00 599.09 Td
+(What this page cannot claim) Tj
+ET
+Q
+q
+0.314 0.314 0.314 rg
+BT
+/F1 9.00 Tf
+48.00 577.87 Td
+(Х Text is set in the base-14 fonts, which are not embedded. PDF/A requires every font to travel with the file Ч attach a family) Tj
+ET
+Q
+q
+0.314 0.314 0.314 rg
+BT
+/F1 9.00 Tf
+48.00 565.87 Td
+(with `pdf.family` or pass `face:`.) Tj
+ET
+Q
+q
+0.471 0.471 0.471 rg
+BT
+/F1 9.50 Tf
+48.00 547.48 Td
+(So this example carries its attachment but does not claim PDF/A-3. swift-invoice-pdf has one that does, set in an) Tj
+ET
+Q
+q
+0.471 0.471 0.471 rg
+BT
+/F1 9.50 Tf
+48.00 533.48 Td
+(embedded face.) Tj
 ET
 Q
 
 endstream
 endobj
+9 0 obj
+<</Type /Filespec /F (factur-x.xml) /UF (factur-x.xml) /AFRelationship /Alternative /Desc (The invoice, as data) /EF <</F 10 0 R /UF 10 0 R>>>>
+endobj
+10 0 obj
+<</Type /EmbeddedFile /Subtype /text#2Fxml /Length 177 /Params <</Size 177>>>>
+stream
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice>
+  <!-- The machine-readable half. A reader opens this; a person reads the page. -->
+</rsm:CrossIndustryInvoice>
+endstream
+endobj
 xref
-0 9
+0 11
 0000000000 65535 f 
 0000000015 00000 n 
-0000000062 00000 n 
-0000000147 00000 n 
-0000001171 00000 n 
-0000002199 00000 n 
-0000003214 00000 n 
-0000003305 00000 n 
-0000003421 00000 n 
+0000000134 00000 n 
+0000000219 00000 n 
+0000001243 00000 n 
+0000002271 00000 n 
+0000003286 00000 n 
+0000003377 00000 n 
+0000003493 00000 n 
+0000005110 00000 n 
+0000005269 00000 n 
 trailer
-<</Size 9 /Root 1 0 R /Info 6 0 R /ID [<2EA2822A5D18719F8E567EE73300560B> <2EA2822A5D18719F8E567EE73300560B>]>>
+<</Size 11 /Root 1 0 R /Info 6 0 R /ID [<2EA2822A5D18719F8E567EE73300560B> <2EA2822A5D18719F8E567EE73300560B>]>>
 startxref
-5671
+5559
 %%EOF
