@@ -116,7 +116,7 @@ public final class Document {
     private var imageIndex: [ObjectIdentifier: Int] = [:]
 
     /// Link areas, by page index.
-    private var annotations: [Int: [String]] = [:]
+    private var annotations: [Int: [Link]] = [:]
 
     /// The document's language, as a BCP 47 tag — "en-GB", "de".
     ///
@@ -135,6 +135,12 @@ public final class Document {
 
     /// Files carried inside the document.
     var attachments: [Attachment] = []
+
+    /// A clickable area, and where it goes.
+    struct Link {
+        let rect: (Double, Double, Double, Double)
+        let url: String
+    }
 
     /// Whether anything was drawn in a font the reader has to supply.
     ///
@@ -708,15 +714,14 @@ public final class Document {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, linkWidth > 0, linkHeight > 0 else { return self }
 
+        // Kept as the rectangle and the address rather than as a finished
+        // dictionary: an encrypted document encrypts its strings, and a URL
+        // already baked into a string of PDF syntax cannot be encrypted
+        // without parsing that syntax back apart.
         let page = stampingPage ?? pages.count
-        let annotation = String(
-            format: "<</Type /Annot /Subtype /Link /Rect [%.2F %.2F %.2F %.2F] "
-                + "/Border [0 0 0] /F 4 /A <</Type /Action /S /URI /URI (%@)>>>>",
-            PDFEncoding.number(x), PDFEncoding.number(linkY),
-            PDFEncoding.number(x + linkWidth), PDFEncoding.number(linkY + linkHeight),
-            PDFEncoding.escape(trimmed)
+        annotations[page, default: []].append(
+            Link(rect: (x, linkY, x + linkWidth, linkY + linkHeight), url: trimmed)
         )
-        annotations[page, default: []].append(annotation)
         return self
     }
 
@@ -874,6 +879,17 @@ public final class Document {
     // MARK: Output
 
     /// The finished PDF bytes.
+    /// - Parameter password: Locks the document. Every stream and every
+    ///   string is encrypted with AES-256, so it cannot be opened — or read
+    ///   by anything — without it.
+    ///
+    ///   It is exactly as strong as the password, and the common use of this
+    ///   feature is a payslip keyed to a date of birth, which is guessed
+    ///   offline in seconds. That satisfies a policy; it is not secrecy.
+    ///
+    ///   Cannot be combined with `standard`: PDF/A forbids encryption
+    ///   outright, an archive being a thing that must still open in fifty
+    ///   years. Asking for both is a programming error and traps.
     /// - Parameter standard: Which standard the file claims. `.pdfA3b` also
     ///   writes the metadata packet, the sRGB output intent and the file
     ///   identifier that conformance requires — see
@@ -881,8 +897,21 @@ public final class Document {
     public func render(
         metadata: [String: String] = [:],
         creationDate: Date = Date(),
-        standard: Standard = .none
+        standard: Standard = .none,
+        password: String = ""
     ) -> Data {
+        precondition(
+            Encryption.problem(with: password) == nil,
+            Encryption.problem(with: password) ?? ""
+        )
+
+        let locked = Encryption(password: password)
+        precondition(
+            locked == nil || standard == .none,
+            "A PDF/A file cannot be encrypted — the standard forbids it, because an archive "
+                + "is a thing that has to still open when nobody remembers the password."
+        )
+
         var finished = pages
         if !current.isEmpty || finished.isEmpty { finished.append(current) }
 
@@ -904,7 +933,8 @@ public final class Document {
             alphas: alphas,
             outline: bookmarks,
             attachments: attachments,
-            standard: standard
+            standard: standard,
+            encryption: locked
         )
     }
 

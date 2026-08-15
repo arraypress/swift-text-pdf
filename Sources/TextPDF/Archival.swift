@@ -102,6 +102,15 @@ extension Document {
 
     // MARK: Conformance
 
+    /// Why a password cannot be used, if it cannot.
+    ///
+    /// Read before rendering: `render(password:)` treats an unusable password
+    /// as a programming error, and a tool should say something better than a
+    /// crash.
+    public static func passwordProblem(_ password: String) -> String? {
+        Encryption.problem(with: password)
+    }
+
     /// Why this document would not satisfy the standard it was asked for.
     ///
     /// Read after rendering, like ``fallbacks``. Empty means the file claims

@@ -37,6 +37,7 @@ This writes the PDF directly. It covers what a document actually needs — text 
 - 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
 - 💧 **Watermarks** — rotation and constant alpha, so DRAFT sits behind the content rather than over the total
 - ▦ **QR codes** — drawn as vector squares, sharp at any zoom; a bitmap at the wrong scale is a code a scanner works for
+- 🔒 **AES-256 encryption** — one mode, no permission theatre, and honest about what a password protects
 - 📎 **Attachments and PDF/A-3** — carry the XML inside the document, which is what an e-invoice is
 - 🔖 **Bookmarks** — an outline for anything longer than a scroll
 - ┈ **Dashed rules** — a signature line, a cut-here, a leader
@@ -59,6 +60,20 @@ pdf.conformanceIssues(for: .pdfA3b)
 ```
 
 A document set in Helvetica cannot be PDF/A whatever else it does — the base-14 faces belong to the reader, and PDF/A carries everything it needs. That is reported rather than claimed falsely.
+
+## Locking a document
+
+```swift
+let data = pdf.render(password: "correct horse battery staple")
+```
+
+AES-256, revision 6. Every stream and every string: the page contents, the fonts, the images, the attachments, the title, the bookmarks and the link addresses. Nothing readable is left in the file.
+
+**What it protects, exactly.** The document cannot be opened without the password. It is therefore exactly as strong as the password, and the common use of this feature — a payslip keyed to a date of birth or a national insurance number — is guessed offline in about as long as it takes to read this sentence. That satisfies a policy. It is not secrecy. Secrecy is a link behind authentication, or a key exchanged somewhere other than the covering email.
+
+**What is deliberately missing.** There is no owner password and there are no permission flags. "Printing not allowed" is enforced only by readers that feel like it, and stripping the flags is one command with tools anybody has; a feature whose entire effect is a belief is worse than not having it. There is no RC4 and no AES-128 either — they exist for readers from 2005, and offering them would be offering a choice whose wrong answers look like the right one.
+
+**Two things it refuses.** A non-ASCII password, because PDFKit — which is Preview, and most Mac software — cannot open a file locked with one even though the format allows it; and a password on a PDF/A file, because the standard forbids encryption outright. Ask `Document.passwordProblem(_:)` before rendering.
 
 ## Watermarks, and marks on the page
 

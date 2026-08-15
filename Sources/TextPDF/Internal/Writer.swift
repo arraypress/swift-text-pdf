@@ -27,6 +27,17 @@ enum Writer {
         string.data(using: .isoLatin1, allowLossyConversion: true) ?? Data(string.utf8)
     }
 
+    /// One string literal, as it should appear in the file.
+    ///
+    /// Encrypted where the document is: a title, an outline entry, a link's
+    /// address and an attachment's filename are all strings, and a document
+    /// whose contents are locked but whose bookmarks read "Payslip — A
+    /// Moreau" has told anybody who looks most of what they wanted.
+    static func literal(_ text: String, object: Int, encrypting: Encryption?) -> String {
+        guard let encrypting else { return "(\(PDFEncoding.escape(text)))" }
+        return "<\(encrypting.encrypt(Data(text.utf8)).hex)>"
+    }
+
     /// Serialises pages into PDF bytes.
     static func write(
         pages: [String],
@@ -36,12 +47,13 @@ enum Writer {
         creationDate: Date,
         embedded: [(name: String, font: EmbeddedFont)] = [],
         images: [(name: String, image: EmbeddedImage)] = [],
-        annotations: [Int: [String]] = [:],
+        annotations: [Int: [Document.Link]] = [:],
         language: String = "",
         alphas: [Double] = [],
         outline: [(title: String, page: Int, y: Double)] = [],
         attachments: [Document.Attachment] = [],
-        standard: Document.Standard = .none
+        standard: Document.Standard = .none,
+        encryption: Encryption? = nil
     ) -> Data {
         let streams = pages.isEmpty ? [""] : pages
 
@@ -123,7 +135,16 @@ enum Writer {
             // renumbering every page after them.
             var annots = ""
             if let links = annotations[index], !links.isEmpty {
-                annots = " /Annots [\(links.joined(separator: " "))]"
+                let written = links.map { link in
+                    String(
+                        format: "<</Type /Annot /Subtype /Link /Rect [%.2F %.2F %.2F %.2F] "
+                            + "/Border [0 0 0] /F 4 /A <</Type /Action /S /URI /URI %@>>>>",
+                        PDFEncoding.number(link.rect.0), PDFEncoding.number(link.rect.1),
+                        PDFEncoding.number(link.rect.2), PDFEncoding.number(link.rect.3),
+                        literal(link.url, object: pageObject, encrypting: encryption)
+                    )
+                }
+                annots = " /Annots [\(written.joined(separator: " "))]"
             }
 
             objects[pageObject] = "<</Type /Page /Parent 2 0 R "
@@ -131,15 +152,26 @@ enum Writer {
                 + "/Contents \(contentObject) 0 R>>"
 
             // One byte per scalar, because the stream is Latin-1 by then.
-            let length = stream.unicodeScalars.count
-            objects[contentObject] = "<</Length \(length)>>\nstream\n\(stream)\nendstream"
+            if encryption != nil {
+                // Handed over as plain bytes, and encrypted with everything
+                // else in one pass below. Encrypting it here as well was the
+                // bug: the sweep does not know what it has already sealed, so
+                // the content went out encrypted twice and decrypted to
+                // nothing.
+                let plain = bytes(stream)
+                objects[contentObject] = "<</Length \(plain.count)>>\nstream\n\u{0}STREAM\u{0}\nendstream"
+                binaries[contentObject] = plain
+            } else {
+                let length = stream.unicodeScalars.count
+                objects[contentObject] = "<</Length \(length)>>\nstream\n\(stream)\nendstream"
+            }
         }
 
         let tag = language.trimmingCharacters(in: .whitespacesAndNewlines)
         objects[1] = "<</Type /Catalog /Pages 2 0 R"
             + (tag.isEmpty ? "" : " /Lang (\(PDFEncoding.escape(tag)))")
             + (outline.isEmpty ? "" : " /Outlines \(firstOutline) 0 R /PageMode /UseOutlines")
-            + attachmentEntries(attachments, firstObject: firstAttachment)
+            + attachmentEntries(attachments, firstObject: firstAttachment, encrypting: encryption)
             + (standard == .none ? "" : " /Metadata \(metadataObject) 0 R "
                 + "/OutputIntents [\(intentObject) 0 R]")
             + ">>"
@@ -148,7 +180,7 @@ enum Writer {
         objects[3] = baseFont(.helvetica)
         objects[4] = baseFont(.helveticaBold)
         objects[5] = baseFont(.courier)
-        objects[6] = info(metadata, creationDate: creationDate)
+        objects[6] = info(metadata, creationDate: creationDate, encrypting: encryption)
 
         // The outline tree: a root, then one item per bookmark, each naming
         // its neighbours. Flat rather than nested — a document this writes is
@@ -164,7 +196,8 @@ enum Writer {
 
             for (index, entry) in outline.enumerated() {
                 let page = firstPage + (min(max(entry.page, 1), streams.count) - 1) * 2
-                var item = "<</Title (\(PDFEncoding.escape(entry.title))) /Parent \(firstOutline) 0 R"
+                var item = "<</Title \(literal(entry.title, object: items[index], encrypting: encryption)) "
+                    + "/Parent \(firstOutline) 0 R"
                 if index > 0 { item += " /Prev \(items[index - 1]) 0 R" }
                 if index < items.count - 1 { item += " /Next \(items[index + 1]) 0 R" }
                 item += String(format: " /Dest [%d 0 R /XYZ 0 %.2F 0]>>", page, entry.y)
@@ -173,7 +206,8 @@ enum Writer {
             last = items.last!
         }
 
-        let carried = attachmentObjects(attachments, firstObject: firstAttachment)
+        let carried = attachmentObjects(attachments, firstObject: firstAttachment,
+                                        encrypting: encryption)
         objects.merge(carried.objects) { _, new in new }
         binaries.merge(carried.binaries) { _, new in new }
         if !attachments.isEmpty { last = max(last, firstAttachment + attachments.count * 2 - 1) }
@@ -187,10 +221,35 @@ enum Writer {
         binaries.merge(conforming.binaries) { _, new in new }
         if standard != .none { last = max(last, profileObject) }
 
+        var encryptObject: Int?
+        if let encryption {
+            last += 1
+            encryptObject = last
+            objects[last] = encryption.dictionary
+        }
+
+        // Every binary stream: the subset fonts, the pictures, the carried
+        // files, the metadata packet and the colour profile. Encrypted last,
+        // after their dictionaries have been written with the plain length —
+        // which then has to be corrected, because AES pads and prepends.
+        if let encryption {
+            for (number, payload) in binaries {
+                let sealed = encryption.encrypt(payload)
+                binaries[number] = sealed
+
+                if let body = objects[number] {
+                    objects[number] = body.replacingOccurrences(
+                        of: "/Length \(payload.count)", with: "/Length \(sealed.count)"
+                    )
+                }
+            }
+        }
+
         return serialise(objects, upTo: last, binaries: binaries,
                          version: standard == .none ? "1.4" : "1.7",
                          identifier: Archival.identifier(
-                             "\(metadata)\(creationDate.timeIntervalSince1970)\(streams.count)"))
+                             "\(metadata)\(creationDate.timeIntervalSince1970)\(streams.count)"),
+                         encrypt: encryptObject)
     }
 
     /// Writes the five objects a CID font needs.
@@ -246,10 +305,19 @@ enum Writer {
         objects[fileObject] = "<</Length \(parts.data.count) /Length1 \(parts.data.count)>>\nstream\n\u{0}STREAM\u{0}\nendstream"
         binaries[fileObject] = parts.data
 
-        objects[toUnicodeObject] = toUnicodeMap(parts.toUnicode)
+        let cmap = bytes(toUnicodeMap(parts.toUnicode))
+        objects[toUnicodeObject] = "<</Length \(cmap.count)>>\nstream\n\u{0}STREAM\u{0}\nendstream"
+        binaries[toUnicodeObject] = cmap
     }
 
     /// A CMap mapping each CID back to the character it came from.
+    /// The CMap body that makes the text selectable.
+    ///
+    /// Returned as bytes rather than as a finished object, so it goes through
+    /// the same splice as every other stream — which is what lets one pass
+    /// encrypt all of them. Written as text it was the one stream a locked
+    /// document never encrypted, and a reader that cannot decrypt this one
+    /// extracts no text at all.
     private static func toUnicodeMap(_ pairs: [(cid: Int, scalar: UInt32)]) -> String {
         var body = """
             /CIDInit /ProcSet findresource begin
@@ -277,7 +345,7 @@ enum Writer {
         }
         body += "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend"
 
-        return "<</Length \(body.unicodeScalars.count)>>\nstream\n\(body)\nendstream"
+        return body
     }
 
     /// One of the base-14 fonts, with its metrics published.
@@ -294,14 +362,16 @@ enum Writer {
             + " /Widths [\(widths)]>>"
     }
 
-    private static func info(_ metadata: [String: String], creationDate: Date) -> String {
+    private static func info(
+        _ metadata: [String: String], creationDate: Date, encrypting: Encryption? = nil
+    ) -> String {
         var parts: [String] = []
 
         for field in ["Title", "Author", "Subject", "Keywords", "Creator"] {
             let value = (metadata[field] ?? metadata[field.lowercased()] ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if !value.isEmpty {
-                parts.append("/\(field) (\(PDFEncoding.escape(value)))")
+                parts.append("/\(field) \(literal(value, object: 6, encrypting: encrypting))")
             }
         }
 
@@ -310,8 +380,8 @@ enum Writer {
         formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.locale = Locale(identifier: "en_US_POSIX")
 
-        parts.append("/Producer (arraypress/swift-text-pdf)")
-        parts.append("/CreationDate (D:\(formatter.string(from: creationDate))Z)")
+        parts.append("/Producer \(literal("arraypress/swift-text-pdf", object: 6, encrypting: encrypting))")
+        parts.append("/CreationDate \(literal("D:\(formatter.string(from: creationDate))Z", object: 6, encrypting: encrypting))")
 
         return "<<" + parts.joined(separator: " ") + ">>"
     }
@@ -319,7 +389,7 @@ enum Writer {
     /// Serialises objects with a correct cross-reference table.
     private static func serialise(
         _ objects: [Int: String], upTo max: Int, binaries: [Int: Data] = [:],
-        version: String = "1.4", identifier: String? = nil
+        version: String = "1.4", identifier: String? = nil, encrypt: Int? = nil
     ) -> Data {
         var pdf = bytes("%PDF-\(version)\n")
 
@@ -353,7 +423,8 @@ enum Writer {
         // /ID is required for a conforming file and useful for any other:
         // it is how two versions of the same document are told apart.
         let fileID = identifier.map { " /ID [<\($0)> <\($0)>]" } ?? ""
-        pdf.append(bytes("trailer\n<</Size \(max + 1) /Root 1 0 R /Info 6 0 R\(fileID)>>"
+        let sealed = encrypt.map { " /Encrypt \($0) 0 R" } ?? ""
+        pdf.append(bytes("trailer\n<</Size \(max + 1) /Root 1 0 R /Info 6 0 R\(fileID)\(sealed)>>"
                          + "\nstartxref\n\(xref)\n%%EOF"))
         return pdf
     }
@@ -368,12 +439,15 @@ extension Writer {
     /// Two ways in, because readers use both: `/Names /EmbeddedFiles` is the
     /// attachments panel, and `/AF` is what a Factur-X reader follows to find
     /// the invoice XML without opening a panel at all.
-    static func attachmentEntries(_ attachments: [Document.Attachment], firstObject: Int) -> String {
+    static func attachmentEntries(
+        _ attachments: [Document.Attachment], firstObject: Int, encrypting: Encryption? = nil
+    ) -> String {
         guard !attachments.isEmpty else { return "" }
 
         let specs = attachments.indices.map { "\(firstObject + $0 * 2) 0 R" }
         let names = attachments.enumerated().map { index, file in
-            "(\(PDFEncoding.escape(file.name))) \(firstObject + index * 2) 0 R"
+            "\(literal(file.name, object: firstObject + index * 2, encrypting: encrypting)) "
+                + "\(firstObject + index * 2) 0 R"
         }
 
         return " /AF [\(specs.joined(separator: " "))]"
@@ -382,7 +456,7 @@ extension Writer {
 
     /// The file specification and the stream behind it.
     static func attachmentObjects(
-        _ attachments: [Document.Attachment], firstObject: Int
+        _ attachments: [Document.Attachment], firstObject: Int, encrypting: Encryption? = nil
     ) -> (objects: [Int: String], binaries: [Int: Data]) {
         var objects: [Int: String] = [:]
         var binaries: [Int: Data] = [:]
@@ -395,15 +469,15 @@ extension Writer {
         for (index, file) in attachments.enumerated() {
             let spec = firstObject + index * 2
             let stream = spec + 1
-            let escaped = PDFEncoding.escape(file.name)
+            let name = literal(file.name, object: spec, encrypting: encrypting)
 
             // /UF as well as /F: the first is a byte string in the reader's
             // own encoding, the second is Unicode, and a reader that only
             // reads one of them is a reader somebody uses.
-            var dictionary = "<</Type /Filespec /F (\(escaped)) /UF (\(escaped)) "
+            var dictionary = "<</Type /Filespec /F \(name) /UF \(name) "
             dictionary += "/AFRelationship /\(file.relationship.rawValue) "
             if !file.description.isEmpty {
-                dictionary += "/Desc (\(PDFEncoding.escape(file.description))) "
+                dictionary += "/Desc \(literal(file.description, object: spec, encrypting: encrypting)) "
             }
             dictionary += "/EF <</F \(stream) 0 R /UF \(stream) 0 R>>>>"
             objects[spec] = dictionary
