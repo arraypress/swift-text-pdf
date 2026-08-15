@@ -1,6 +1,6 @@
 # Swift Text PDF
 
-A PDF writer with no dependencies. Invoices, credit notes, quotes and receipts — tables, vector logos, multi-page flow and VAT-compliant wording.
+A PDF writer with no package dependencies. Invoices, credit notes, quotes and receipts — tables, vector logos, embedded typefaces, images, multi-page flow and VAT-compliant wording.
 
 ```swift
 let invoice = Invoice(
@@ -19,7 +19,7 @@ try invoice.save(to: url)     // 7 KB
 
 Generating an invoice usually means shelling out to a browser engine, pulling in a rendering library and its dependency tree, or paying an API to render a document that never leaves your own server.
 
-This writes the PDF directly. It covers what a business document actually needs — text flow, tables, rules, a vector logo, page breaks — and nothing else. No HTML engine, no font embedding, no image codecs.
+This writes the PDF directly. It covers what a document actually needs — text flow, tables, rules, curves, a vector logo, an embedded typeface, an image, page breaks — and nothing else. No HTML engine, no rendering library, no service, and nothing outside the system frameworks.
 
 ## Features
 
@@ -36,7 +36,7 @@ This writes the PDF directly. It covers what a business document actually needs 
 - 📷 **JPEG and PNG** — JPEG passed through undecoded, PNG decoded and re-deflated with transparency intact
 - ⬌ **Justified text** — set word by word, so it works with an embedded family too
 - 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
-- 🪶 **Zero dependencies**
+- 🪶 **No package dependencies** — Foundation and the system's own frameworks, nothing from SwiftPM
 
 ## Documents
 
