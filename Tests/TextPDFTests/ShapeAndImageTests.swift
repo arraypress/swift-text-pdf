@@ -13,7 +13,7 @@ import XCTest
 
 final class ShapeAndImageTests: XCTestCase {
 
-    private let jpeg = URL(fileURLWithPath: "/private/tmp/claude-501/-Users-davidsherlock-Developer-Swift-Libraries/ff8e37d5-9238-42d7-88ba-bc4b95ec3dba/scratchpad/portrait.jpg")
+    private var jpeg: URL { Fixtures.jpeg }
 
     private func stream(of pdf: Data) -> String {
         String(data: pdf, encoding: .isoLatin1) ?? ""
@@ -127,8 +127,7 @@ final class ShapeAndImageTests: XCTestCase {
     // MARK: Images
 
     private func loadImage() throws -> EmbeddedImage {
-        try XCTSkipUnless(FileManager.default.fileExists(atPath: jpeg.path), "no test JPEG")
-        return try EmbeddedImage.load(jpeg)
+        try EmbeddedImage.load(jpeg)
     }
 
     func testJPEGDimensionsAreRead() throws {

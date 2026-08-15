@@ -13,12 +13,13 @@ import XCTest
 
 final class PNGTests: XCTestCase {
 
-    private let scratch = "/private/tmp/claude-501/-Users-davidsherlock-Developer-Swift-Libraries/ff8e37d5-9238-42d7-88ba-bc4b95ec3dba/scratchpad"
-
     private func image(_ name: String) throws -> EmbeddedImage {
-        let path = "\(scratch)/\(name)"
-        try XCTSkipUnless(FileManager.default.fileExists(atPath: path), "no \(name)")
-        return try EmbeddedImage.load(URL(fileURLWithPath: path))
+        switch name {
+        case "portrait.png": return try EmbeddedImage.load(Fixtures.png)
+        case "portrait.jpg": return try EmbeddedImage.load(Fixtures.jpeg)
+        case "dot.png": return try EmbeddedImage.load(Fixtures.dot)
+        default: throw XCTSkip("no fixture called \(name)")
+        }
     }
 
     private func raw(_ data: Data) throws -> String {
