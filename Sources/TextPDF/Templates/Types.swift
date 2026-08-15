@@ -32,6 +32,20 @@ public struct Party: Sendable, Equatable, Codable {
         self.taxID = taxID
     }
 
+    /// The address block, with a link where a line has somewhere to go.
+    ///
+    /// An invoice is read from a screen at least as often as from paper, and
+    /// the supplier's email address is the one thing on it a recipient
+    /// actually needs to act on when something is wrong.
+    public func linkedLines(vatLabel: String = "VAT") -> [(text: String, url: String)] {
+        var out = address.map { (text: $0, url: "") }
+        if !email.trimmingCharacters(in: .whitespaces).isEmpty {
+            out.append((email, "mailto:\(email.trimmingCharacters(in: .whitespaces))"))
+        }
+        if !taxID.isEmpty { out.append(("\(vatLabel) \(taxID)", "")) }
+        return out.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
     /// The address block, one string per line.
     public func lines(vatLabel: String = "VAT") -> [String] {
         var lines = address
@@ -195,6 +209,18 @@ public struct Branding: Sendable, Equatable, Codable {
     /// Small print for the page foot.
     public let footnotes: [String]
 
+    /// The typeface the documents are set in.
+    ///
+    /// A description of files rather than loaded fonts, so a branding profile
+    /// stays something you can keep in version control beside your books. It
+    /// is resolved by whoever renders — reading fonts off a disk is not work a
+    /// value type should be doing.
+    ///
+    /// Left empty, the documents are set in Helvetica, which is the right
+    /// default for paperwork: it prints on anything, photocopies, and is hard
+    /// to date.
+    public let typeface: TypefaceFiles?
+
     public init(
         name: String,
         tagline: String = "",
@@ -202,7 +228,8 @@ public struct Branding: Sendable, Equatable, Codable {
         logoPath: String? = nil,
         logoBox: Double = 100,
         address: [String] = [],
-        footnotes: [String] = []
+        footnotes: [String] = [],
+        typeface: TypefaceFiles? = nil
     ) {
         self.name = name
         self.tagline = tagline
@@ -211,6 +238,7 @@ public struct Branding: Sendable, Equatable, Codable {
         self.logoBox = logoBox
         self.address = address
         self.footnotes = footnotes
+        self.typeface = typeface
     }
 
     public var accentColor: Color { .hex(accent) }
@@ -232,5 +260,61 @@ public struct Branding: Sendable, Equatable, Codable {
     public var isMonochrome: Bool {
         let colour = accentColor
         return colour.red == colour.green && colour.green == colour.blue
+    }
+}
+
+// MARK: - Typeface files
+
+/// The files making up a brand typeface.
+///
+/// Paths rather than bytes, and static TrueType instances rather than variable
+/// ones — a variable font would embed as its default weight throughout, and
+/// ``EmbeddedFont`` refuses one rather than let that happen quietly.
+///
+/// Only the weights given exist. A template asking for bold in a profile that
+/// names one file gets that file, so a business with a single face still gets
+/// its documents set in it.
+public struct TypefaceFiles: Sendable, Equatable, Codable {
+
+    public var name: String
+    public var regular: String
+    public var medium: String?
+    public var semibold: String?
+    public var bold: String?
+    public var italic: String?
+
+    public init(
+        name: String = "",
+        regular: String,
+        medium: String? = nil,
+        semibold: String? = nil,
+        bold: String? = nil,
+        italic: String? = nil
+    ) {
+        self.name = name
+        self.regular = regular
+        self.medium = medium
+        self.semibold = semibold
+        self.bold = bold
+        self.italic = italic
+    }
+
+    /// Loads the family.
+    public func family() throws -> FontFamily {
+        var loaded = FontFamily(name: name.isEmpty ? "Brand" : name)
+
+        func add(_ path: String?, _ weight: FontFamily.Weight, italic: Bool = false) throws {
+            guard let path, !path.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+            loaded.add(try EmbeddedFont.load(url), weight: weight, italic: italic)
+        }
+
+        try add(regular, .regular)
+        try add(medium, .medium)
+        try add(semibold, .semibold)
+        try add(bold, .bold)
+        try add(italic, .regular, italic: true)
+
+        return loaded
     }
 }

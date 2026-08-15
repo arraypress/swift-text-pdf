@@ -43,6 +43,16 @@ public final class Document {
     /// Drawn on every page *before* its content.
     private var background: ((Document, Int, Int) -> Void)?
 
+    /// Text a family was attached for and did not draw.
+    ///
+    /// Not a failure — the run falls back to a base-14 font and appears
+    /// correctly — but a visible inconsistency: one glyph in Helvetica in the
+    /// middle of a document set in something else. On an invoice that is
+    /// usually the currency symbol, because a brand face drawn for a logo
+    /// often has no £ or €, and a total is the one figure nobody should have
+    /// to look at twice.
+    public private(set) var fallbacks: [String] = []
+
     /// Text that could not be drawn as written, with the reason.
     ///
     /// Unrepresentable characters become `?`, which leaves a name looking
@@ -344,6 +354,7 @@ public final class Document {
                                 tracking: tracking, using: resolved)
         }
         if PDFEncoding.needsEmbedding(text) { record(text) }
+        if family != nil { recordFallback(text) }
 
         let escaped = PDFEncoding.escape(text)
         var originX = x
@@ -384,6 +395,13 @@ public final class Document {
     static func trackingWidth(_ text: String, _ tracking: Double) -> Double {
         guard tracking != 0 else { return 0 }
         return tracking * Double(max(0, text.unicodeScalars.count - 1))
+    }
+
+    /// Notes a run the attached family could not draw.
+    private func recordFallback(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !fallbacks.contains(trimmed) else { return }
+        fallbacks.append(trimmed)
     }
 
     /// Notes text that will come out as question marks.

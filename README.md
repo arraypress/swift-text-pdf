@@ -31,7 +31,7 @@ This writes the PDF directly. It covers what a business document actually needs 
 - 🇪🇺 **VAT-aware** — reverse charge, intra-community supply, export and small-business wording, in English and German
 - ✅ **Compliance checks** — the §14 UStG / Article 226 particulars, verified before you send
 - 🔒 **Injection-safe** — customer names cannot escape the content stream
-- ✒️ **Real typography** — embed a family in several weights and italic; metrics come from the face, and only the glyphs used are carried
+- ✒️ **Real typography** — set the documents in a brand family; metrics come from the face, and only the glyphs used are carried
 - ⭕ **Curves** — circles, rings, arcs, rounded rectangles and meters, built from Béziers rather than approximated
 - 📷 **JPEG images** — passed through undecoded under `/DCTDecode`, with a circular clip for portraits
 - 🔗 **Clickable links** — invisible annotations over drawn text, so a URL is not a string somebody has to retype
@@ -134,6 +134,22 @@ pdf.circularImage(portrait, x: 48, y: 700, diameter: 96)
 A PDF takes JPEG bytes without decoding them — that is what `/DCTDecode` is — so image support costs about a hundred lines rather than a codec. PNG would mean inflating the file, un-filtering the scanlines and re-deflating the result, which is a zlib implementation and a great deal of surface area for a writer whose selling point is having no dependencies. Converting first is one command.
 
 Progressive JPEGs and CMYK are refused with the reason rather than embedded: both would produce a file that opens and shows nothing.
+
+## A typeface of your own
+
+Business documents default to Helvetica because paperwork is better for being unremarkable — it prints on anything, photocopies, and is hard to date. Where a business has a face of its own, name it on the branding:
+
+```swift
+let branding = Branding(
+    name: "Sugarcart Ltd",
+    typeface: TypefaceFiles(name: "Söhne", regular: regularPath, bold: boldPath)
+)
+try Invoice(branding: branding, …).save(to: url)
+```
+
+Only the weights named exist; a template asking for bold in a profile with one file gets that file, so a business with a single face still gets its documents set in it.
+
+A brand face drawn for a logo commonly has no `£` or `€`. Those runs fall back to Helvetica and appear correctly — but in a different face, and on a total that is the one figure nobody should have to look at twice. Anything the family could not draw is listed in `document.fallbacks` after rendering, so it can be reported rather than found.
 
 ## Text beyond Latin-1
 

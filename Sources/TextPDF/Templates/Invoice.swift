@@ -267,8 +267,19 @@ public struct Invoice: Sendable {
     /// committed to the content stream as it is laid out, so a font attached
     /// afterwards arrives too late to be used.
     public func render(embedding font: EmbeddedFont? = nil) -> Document {
+        render(in: nil, fallback: font)
+    }
+
+    /// The same, set in a family.
+    ///
+    /// Where `family` is the document's type and draws everything, `fallback`
+    /// is reached for only when the family cannot — a Cyrillic customer name
+    /// against a brand face that has no Cyrillic in it.
+    public func render(in family: FontFamily?, fallback: EmbeddedFont? = nil) -> Document {
         let pdf = Document(size: size, orientation: .portrait, margin: 48, fontSize: 9.5, leading: 13)
-        pdf.embeddedFont = font
+        pdf.family = family ?? branding.typeface.flatMap { try? $0.family() }
+        pdf.embeddedFont = fallback
+        pdf.language = germanNotes ? "de" : "en"
 
         masthead(pdf)
         parties(pdf)
@@ -390,8 +401,14 @@ public struct Invoice: Sendable {
         pdf.textAt(to.name, x: pdf.left(), y: top - 16, size: 11, font: .helveticaBold, color: branding.ink)
 
         var y = top - 29
-        for line in to.lines() {
-            pdf.textAt(line, x: pdf.left(), y: y, size: 9, font: .helvetica, color: branding.muted)
+        for line in to.linkedLines() {
+            if line.url.isEmpty {
+                pdf.textAt(line.text, x: pdf.left(), y: y, size: 9,
+                           font: .helvetica, color: branding.muted)
+            } else {
+                pdf.linked(line.text, url: line.url, x: pdf.left(), y: y, size: 9,
+                           font: .helvetica, color: branding.muted)
+            }
             y -= 11.5
         }
 
