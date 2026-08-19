@@ -5,15 +5,17 @@ A PDF writer with no package dependencies. Text flow, tables, vector paths, embe
 ```swift
 let pdf = Document(size: .a4, margin: 48)
 
-pdf.text("Statement of account", size: 18, face: .bold)
+pdf.heading("Statement of account", size: 18)
 pdf.gap(12)
-pdf.table(
-    columns: [.init(title: "Description", width: 3), .init(title: "Amount", width: 1, align: .right)],
-    rows: [["Consultancy, July", "£1,240.00"], ["Expenses", "£86.40"]]
-)
+
+Table(headers: ["Description", "Amount"])
+    .widths([3, 1])
+    .align([1: .right])
+    .rows([["Consultancy, July", "£1,240.00"], ["Expenses", "£86.40"]])
+    .draw(pdf)
 pdf.rule()
 
-try pdf.render().write(to: url)     // 3 KB
+try pdf.save(to: url)     // 3 KB
 ```
 
 ## Why
@@ -96,7 +98,7 @@ Drawn as vector squares rather than embedded as a picture, so it stays sharp at 
 
 ## Examples
 
-Nine pages showing what goes on a page — tables, curves, vector paths, typography, images, links — [as PDFs](Examples).
+Fourteen pages showing what goes on a page — tables, curves, vector paths, typography, images, links — [as PDFs](Examples).
 
 ## Setting a document in a typeface
 
