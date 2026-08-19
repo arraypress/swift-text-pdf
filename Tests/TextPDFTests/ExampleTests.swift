@@ -381,7 +381,7 @@ final class ExampleTests: XCTestCase {
         pdf.linked("arraypress.com", url: "https://arraypress.com", x: pdf.left(),
                    y: pdf.cursor(), size: 11, color: .hex("#1F3A5F"))
         pdf.gap(20)
-        pdf.linked("accounts@swiftinvoices.co.uk", url: "mailto:accounts@swiftinvoices.co.uk",
+        pdf.linked("accounts@meridianstudio.co.uk", url: "mailto:accounts@meridianstudio.co.uk",
                    x: pdf.left(), y: pdf.cursor(), size: 11, color: .hex("#1F3A5F"))
         pdf.gap(28)
 
@@ -445,7 +445,7 @@ final class ExampleTests: XCTestCase {
     func testQRCodes() throws {
         let pdf = page("QR codes", "Drawn as vector squares, so they survive a printer and a photocopier.")
 
-        let payload = "BCD\n002\n1\nSCT\n\nSwiftInvoices Ltd\nDE89370400440532013000\nEUR898.80\n\n\nINV-2026-0042"
+        let payload = "BCD\n002\n1\nSCT\n\nMeridian Studio Ltd\nDE89370400440532013000\nEUR898.80\n\n\nINV-2026-0042"
 
         var x = pdf.left()
         for size in [70.0, 100.0, 130.0] {

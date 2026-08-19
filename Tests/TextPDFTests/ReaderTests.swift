@@ -58,10 +58,10 @@ final class ReaderTests: XCTestCase {
         let pdf = Document()
         pdf.text("body")
 
-        let opened = try open(pdf.render(metadata: ["Title": "INVOICE INV-1", "Author": "SwiftInvoices Ltd"]))
+        let opened = try open(pdf.render(metadata: ["Title": "INVOICE INV-1", "Author": "Meridian Studio Ltd"]))
         let attributes = try XCTUnwrap(opened.documentAttributes)
         XCTAssertEqual(attributes[PDFDocumentAttribute.titleAttribute] as? String, "INVOICE INV-1")
-        XCTAssertEqual(attributes[PDFDocumentAttribute.authorAttribute] as? String, "SwiftInvoices Ltd")
+        XCTAssertEqual(attributes[PDFDocumentAttribute.authorAttribute] as? String, "Meridian Studio Ltd")
     }
 
     func testCurrencyAndPunctuationComeBackIntact() throws {

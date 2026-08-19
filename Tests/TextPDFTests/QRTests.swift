@@ -19,7 +19,7 @@ final class QRTests: XCTestCase {
         1
         SCT
 
-        SwiftInvoices Ltd
+        Meridian Studio Ltd
         GB29NWBK60161331926819
         GBP898.80
 

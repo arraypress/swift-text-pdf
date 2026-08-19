@@ -21,9 +21,9 @@ final class EncryptionTests: XCTestCase {
         pdf.gap(8)
         pdf.text("Alex Moreau — net pay £2,481.06")
         pdf.bookmark("Payslip")
-        pdf.linked("payroll@swiftinvoices.co.uk", url: "mailto:payroll@swiftinvoices.co.uk",
+        pdf.linked("payroll@meridianstudio.co.uk", url: "mailto:payroll@meridianstudio.co.uk",
                    x: 60, y: 600, size: 10)
-        return pdf.render(metadata: ["Title": "Payslip — Alex Moreau", "Author": "SwiftInvoices Ltd"],
+        return pdf.render(metadata: ["Title": "Payslip — Alex Moreau", "Author": "Meridian Studio Ltd"],
                           password: password)
     }
 
@@ -80,12 +80,12 @@ final class EncryptionTests: XCTestCase {
         // they wanted.
         let rendered = try raw(payslip())
         XCTAssertFalse(rendered.contains("Alex Moreau"), "the title is in the clear")
-        XCTAssertFalse(rendered.contains("SwiftInvoices Ltd"), "the author is in the clear")
+        XCTAssertFalse(rendered.contains("Meridian Studio Ltd"), "the author is in the clear")
     }
 
     func testBookmarksAndLinksAreNotEither() throws {
         let rendered = try raw(payslip())
-        XCTAssertFalse(rendered.contains("payroll@swiftinvoices.co.uk"), "the link is in the clear")
+        XCTAssertFalse(rendered.contains("payroll@meridianstudio.co.uk"), "the link is in the clear")
         XCTAssertFalse(rendered.contains("/Title (Payslip)"), "the outline entry is in the clear")
     }
 

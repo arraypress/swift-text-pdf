@@ -158,7 +158,7 @@ extension ArchivalTests {
         let pdf = Document()
         pdf.text("INVOICE INV-2026-0042", size: 14, face: try embedded())
 
-        let data = pdf.render(metadata: ["Title": "INV-2026-0042", "Author": "SwiftInvoices Ltd"],
+        let data = pdf.render(metadata: ["Title": "INV-2026-0042", "Author": "Meridian Studio Ltd"],
                               standard: .pdfA3b)
         let rendered = try raw(data)
 
