@@ -228,6 +228,8 @@ public final class EmbeddedFont: @unchecked Sendable {
 
 // MARK: - Errors
 
+/// Why a font could not be embedded, each with a message that says what to
+/// do about it.
 public enum EmbeddingError: Error, LocalizedError, Equatable {
 
     case unreadable(String)

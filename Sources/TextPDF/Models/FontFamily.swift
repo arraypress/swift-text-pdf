@@ -50,6 +50,7 @@ public struct FontFamily: Sendable {
     /// A monospaced face, for anything set in code.
     public var mono: EmbeddedFont?
 
+    /// An empty family, ready for faces to be added.
     public init(name: String = "") {
         self.name = name
     }

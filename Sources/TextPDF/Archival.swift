@@ -157,7 +157,8 @@ enum Archival {
     /// information dictionary — a validator compares them, and a file whose
     /// two halves disagree fails for that alone.
     static func metadata(
-        _ info: [String: String], creationDate: Date, standard: Document.Standard
+        _ info: [String: String], creationDate: Date, standard: Document.Standard,
+        extras: [String] = []
     ) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
@@ -195,6 +196,10 @@ enum Archival {
             """
             : ""
 
+        // Caller-supplied rdf:Description elements, verbatim — the fx:
+        // schema a Factur-X invoice must carry is the case in mind.
+        let extra = extras.isEmpty ? "" : "\n" + extras.joined(separator: "\n")
+
         return """
         <?xpacket begin="\u{FEFF}" id="W5M0MpCehiHzreSzNTczkc9d"?>
         <x:xmpmeta xmlns:x="adobe:ns:meta/">
@@ -208,7 +213,7 @@ enum Archival {
             </rdf:Description>
             <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">
               <pdf:Producer>arraypress/swift-text-pdf</pdf:Producer>
-            </rdf:Description>\(part)
+            </rdf:Description>\(part)\(extra)
           </rdf:RDF>
         </x:xmpmeta>
         <?xpacket end="w"?>

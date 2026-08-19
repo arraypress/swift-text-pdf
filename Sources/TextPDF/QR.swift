@@ -106,6 +106,10 @@ enum QRMatrix {
         }
     }
 
+    /// One context for every code drawn. Creating one is the expensive part
+    /// of the render, and a statement carrying a QR per page paid it per page.
+    private static let context = CIContext(options: [.useSoftwareRenderer: true])
+
     /// Builds the grid, or nothing when the text will not fit one.
     static func make(_ text: String, correction: Document.QRCorrection) -> Grid? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -123,8 +127,7 @@ enum QRMatrix {
         let extent = image.extent
         guard extent.width > 0, extent.width == extent.height else { return nil }
 
-        let context = CIContext(options: [.useSoftwareRenderer: true])
-        guard let raster = context.createCGImage(image, from: extent) else { return nil }
+        guard let raster = Self.context.createCGImage(image, from: extent) else { return nil }
 
         let width = Int(extent.width)
         var pixels = [UInt8](repeating: 0, count: width * width)

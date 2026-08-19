@@ -43,11 +43,11 @@ public final class Document {
     /// Vertical position, in points from the page bottom.
     private var y: Double
 
-    /// Drawn on every page once the total is known.
-    private var footer: ((Document, Int, Int) -> Void)?
+    /// Drawn on every page once the total is known, in registration order.
+    private var footers: [(Document, Int, Int) -> Void] = []
 
-    /// Drawn on every page *before* its content.
-    private var background: ((Document, Int, Int) -> Void)?
+    /// Drawn on every page *before* its content, in registration order.
+    private var backgrounds: [(Document, Int, Int) -> Void] = []
 
     /// Every run of text drawn, in the order it was drawn.
     ///
@@ -133,6 +133,16 @@ public final class Document {
     /// Named points, for the reader's sidebar.
     var bookmarks: [(title: String, page: Int, y: Double)] = []
 
+    /// Extra XMP, for a standard this writer does not know by name.
+    ///
+    /// Each entry is a complete `rdf:Description` element, appended verbatim
+    /// to the metadata packet when one is written — which is only under a
+    /// ``Standard`` other than `.none`. Factur-X is the case in mind: its
+    /// `fx:` conformance schema lives in the XMP, and a validator fails the
+    /// file without it, but this writer has no business knowing invoice
+    /// vocabularies.
+    public var metadataExtras: [String] = []
+
     /// Files carried inside the document.
     var attachments: [Attachment] = []
 
@@ -214,9 +224,14 @@ public final class Document {
     }
 
     /// Registers a callback drawn on every page once the total is known.
+    ///
+    /// Callbacks accumulate rather than replace, drawn in the order they were
+    /// registered. Replacing was the old behaviour, and it made a watermark
+    /// and a page number mutually exclusive — whichever was asked for second
+    /// silently deleted the first.
     @discardableResult
     public func onEachPage(_ callback: @escaping (Document, Int, Int) -> Void) -> Document {
-        footer = callback
+        footers.append(callback)
         return self
     }
 
@@ -226,9 +241,12 @@ public final class Document {
     /// a filled rectangle, and one of those drawn afterwards paints out
     /// everything it covers — so a tinted column or a letterhead has to go
     /// down first, and cannot until the page count is known.
+    ///
+    /// Accumulates like ``onEachPage(_:)``: a letterhead panel and a
+    /// watermark both draw, in registration order.
     @discardableResult
     public func behindEachPage(_ callback: @escaping (Document, Int, Int) -> Void) -> Document {
-        background = callback
+        backgrounds.append(callback)
         return self
     }
 
@@ -577,7 +595,6 @@ public final class Document {
         let pattern = dash.isEmpty
             ? ""
             : "[\(dash.map { String(format: "%.2F", PDFEncoding.number($0)) }.joined(separator: " "))] 0 d\n"
-        current += pattern.isEmpty ? "" : ""
         current += String(
             format: "q\n%@ RG\n%.2F w\n\(pattern)%.2F %.2F m\n%.2F %.2F l\nS\nQ\n",
             ink.operands,
@@ -742,7 +759,11 @@ public final class Document {
                color: color, face: face, tracking: tracking)
 
         let measured = width(of: text, size: size, font: font, face: face, tracking: tracking)
-        let descent = (face?.descender(size) ?? size * 0.22)
+        // The face that will actually draw, not just the one named — with a
+        // family attached the named face is usually nil, and the base-14
+        // guess put the hot area a shade off the family's true descent.
+        let resolved = resolveFace(font: font, face: face, for: text)
+        let descent = (resolved?.descender(size) ?? size * 0.22)
         return link(url, x: x, y: baseline - descent, width: measured, height: size)
     }
 
@@ -934,6 +955,7 @@ public final class Document {
             outline: bookmarks,
             attachments: attachments,
             standard: standard,
+            metadataExtras: metadataExtras,
             encryption: locked
         )
     }
@@ -965,7 +987,7 @@ public final class Document {
 
     /// Runs the per-page callbacks, now that the total is known.
     private func applyFooters(to streams: [String]) -> [String] {
-        guard footer != nil || background != nil else { return streams }
+        guard !footers.isEmpty || !backgrounds.isEmpty else { return streams }
 
         let total = streams.count
         let savedStream = current
@@ -977,12 +999,12 @@ public final class Document {
 
             current = ""
             y = pageHeight - margin
-            background?(self, index + 1, total)
+            for background in backgrounds { background(self, index + 1, total) }
             let beneath = current
 
             current = ""
             y = pageHeight - margin
-            footer?(self, index + 1, total)
+            for footer in footers { footer(self, index + 1, total) }
 
             stamped.append(beneath + stream + current)
         }

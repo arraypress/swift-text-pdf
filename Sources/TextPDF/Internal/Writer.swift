@@ -29,13 +29,33 @@ enum Writer {
 
     /// One string literal, as it should appear in the file.
     ///
+    /// ASCII goes out as an escaped literal. Anything beyond it is written as
+    /// UTF-16BE behind a byte-order mark, because outside a content stream a
+    /// reader takes a string as PDFDocEncoding or UTF-16 — never CP1252. The
+    /// CP1252 bytes this used to write put the euro, the dashes and the curly
+    /// quotes in the 0x80–0x9F window, where PDFDocEncoding keeps different
+    /// glyphs — so a title saying "Invoice — €500" opened as "Invoice Š •500".
+    ///
     /// Encrypted where the document is: a title, an outline entry, a link's
     /// address and an attachment's filename are all strings, and a document
     /// whose contents are locked but whose bookmarks read "Payslip — A
     /// Moreau" has told anybody who looks most of what they wanted.
-    static func literal(_ text: String, object: Int, encrypting: Encryption?) -> String {
-        guard let encrypting else { return "(\(PDFEncoding.escape(text)))" }
-        return "<\(encrypting.encrypt(Data(text.utf8)).hex)>"
+    static func literal(_ text: String, encrypting: Encryption?) -> String {
+        if let encrypting { return "<\(encrypting.encrypt(textBytes(text)).hex)>" }
+        if text.allSatisfy(\.isASCII) { return "(\(PDFEncoding.escape(text)))" }
+        return "<\(textBytes(text).hex)>"
+    }
+
+    /// A text string's bytes as a reader outside a content stream takes them:
+    /// plain ASCII where that suffices, UTF-16BE with a BOM where it does not.
+    private static func textBytes(_ text: String) -> Data {
+        if text.allSatisfy(\.isASCII) { return Data(text.utf8) }
+        var bytes: [UInt8] = [0xFE, 0xFF]
+        for unit in text.utf16 {
+            bytes.append(UInt8(unit >> 8))
+            bytes.append(UInt8(unit & 0xFF))
+        }
+        return Data(bytes)
     }
 
     /// Serialises pages into PDF bytes.
@@ -53,6 +73,7 @@ enum Writer {
         outline: [(title: String, page: Int, y: Double)] = [],
         attachments: [Document.Attachment] = [],
         standard: Document.Standard = .none,
+        metadataExtras: [String] = [],
         encryption: Encryption? = nil
     ) -> Data {
         let streams = pages.isEmpty ? [""] : pages
@@ -141,7 +162,7 @@ enum Writer {
                             + "/Border [0 0 0] /F 4 /A <</Type /Action /S /URI /URI %@>>>>",
                         PDFEncoding.number(link.rect.0), PDFEncoding.number(link.rect.1),
                         PDFEncoding.number(link.rect.2), PDFEncoding.number(link.rect.3),
-                        literal(link.url, object: pageObject, encrypting: encryption)
+                        literal(link.url, encrypting: encryption)
                     )
                 }
                 annots = " /Annots [\(written.joined(separator: " "))]"
@@ -196,7 +217,7 @@ enum Writer {
 
             for (index, entry) in outline.enumerated() {
                 let page = firstPage + (min(max(entry.page, 1), streams.count) - 1) * 2
-                var item = "<</Title \(literal(entry.title, object: items[index], encrypting: encryption)) "
+                var item = "<</Title \(literal(entry.title, encrypting: encryption)) "
                     + "/Parent \(firstOutline) 0 R"
                 if index > 0 { item += " /Prev \(items[index - 1]) 0 R" }
                 if index < items.count - 1 { item += " /Next \(items[index + 1]) 0 R" }
@@ -215,7 +236,7 @@ enum Writer {
         let conforming = standardObjects(
             standard, metadata: metadata, creationDate: creationDate,
             metadataObject: metadataObject, intentObject: intentObject,
-            profileObject: profileObject
+            profileObject: profileObject, extras: metadataExtras
         )
         objects.merge(conforming.objects) { _, new in new }
         binaries.merge(conforming.binaries) { _, new in new }
@@ -245,8 +266,11 @@ enum Writer {
             }
         }
 
+        // 1.7 for an encrypted file as well as a conforming one: AES-256 is a
+        // PDF 2.0 mechanism that shipped in 1.7 readers as Adobe's extension,
+        // and a 1.4 header over it claims a version that never had it.
         return serialise(objects, upTo: last, binaries: binaries,
-                         version: standard == .none ? "1.4" : "1.7",
+                         version: standard == .none && encryption == nil ? "1.4" : "1.7",
                          identifier: Archival.identifier(
                              metadata.keys.sorted().map { "\($0)=\(metadata[$0] ?? "")" }
                                  .joined(separator: "|")
@@ -273,8 +297,10 @@ enum Writer {
         objects[type0] = "<</Type /Font /Subtype /Type0 /BaseFont /\(font.name) "
             + "/Encoding /Identity-H /DescendantFonts [\(descendant) 0 R] /ToUnicode \(toUnicodeObject) 0 R>>"
 
+        // Every glyph's width is published, zeroes included. A combining mark
+        // really is zero wide, and omitting it hands the reader /DW instead —
+        // 1000 units of empty space in the middle of a decomposed "Zoë".
         let widths = parts.widths
-            .filter { $0.width > 0 }
             .map { "\($0.cid) [\($0.width)]" }
             .joined(separator: " ")
 
@@ -373,7 +399,7 @@ enum Writer {
             let value = (metadata[field] ?? metadata[field.lowercased()] ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if !value.isEmpty {
-                parts.append("/\(field) \(literal(value, object: 6, encrypting: encrypting))")
+                parts.append("/\(field) \(literal(value, encrypting: encrypting))")
             }
         }
 
@@ -382,8 +408,8 @@ enum Writer {
         formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.locale = Locale(identifier: "en_US_POSIX")
 
-        parts.append("/Producer \(literal("arraypress/swift-text-pdf", object: 6, encrypting: encrypting))")
-        parts.append("/CreationDate \(literal("D:\(formatter.string(from: creationDate))Z", object: 6, encrypting: encrypting))")
+        parts.append("/Producer \(literal("arraypress/swift-text-pdf", encrypting: encrypting))")
+        parts.append("/CreationDate \(literal("D:\(formatter.string(from: creationDate))Z", encrypting: encrypting))")
 
         return "<<" + parts.joined(separator: " ") + ">>"
     }
@@ -448,7 +474,7 @@ extension Writer {
 
         let specs = attachments.indices.map { "\(firstObject + $0 * 2) 0 R" }
         let names = attachments.enumerated().map { index, file in
-            "\(literal(file.name, object: firstObject + index * 2, encrypting: encrypting)) "
+            "\(literal(file.name, encrypting: encrypting)) "
                 + "\(firstObject + index * 2) 0 R"
         }
 
@@ -471,7 +497,7 @@ extension Writer {
         for (index, file) in attachments.enumerated() {
             let spec = firstObject + index * 2
             let stream = spec + 1
-            let name = literal(file.name, object: spec, encrypting: encrypting)
+            let name = literal(file.name, encrypting: encrypting)
 
             // /UF as well as /F: the first is a byte string in the reader's
             // own encoding, the second is Unicode, and a reader that only
@@ -479,7 +505,7 @@ extension Writer {
             var dictionary = "<</Type /Filespec /F \(name) /UF \(name) "
             dictionary += "/AFRelationship /\(file.relationship.rawValue) "
             if !file.description.isEmpty {
-                dictionary += "/Desc \(literal(file.description, object: spec, encrypting: encrypting)) "
+                dictionary += "/Desc \(literal(file.description, encrypting: encrypting)) "
             }
             dictionary += "/EF <</F \(stream) 0 R /UF \(stream) 0 R>>>>"
             objects[spec] = dictionary
@@ -505,7 +531,8 @@ extension Writer {
         creationDate: Date,
         metadataObject: Int,
         intentObject: Int,
-        profileObject: Int
+        profileObject: Int,
+        extras: [String] = []
     ) -> (objects: [Int: String], binaries: [Int: Data]) {
         guard standard != .none else { return ([:], [:]) }
 
@@ -514,7 +541,8 @@ extension Writer {
 
         // Uncompressed on purpose: a validator, and anything reading the file
         // without a PDF parser, expects to find the packet as plain text.
-        let packet = Archival.metadata(metadata, creationDate: creationDate, standard: standard)
+        let packet = Archival.metadata(metadata, creationDate: creationDate,
+                                       standard: standard, extras: extras)
         let bytes = Data(packet.utf8)
         objects[metadataObject] = "<</Type /Metadata /Subtype /XML /Length \(bytes.count)>>\n"
             + "stream\n\u{0}STREAM\u{0}\nendstream"

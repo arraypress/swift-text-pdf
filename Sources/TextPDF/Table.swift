@@ -18,6 +18,7 @@ public final class Table {
     private var height: Double = 18
     private var totalRow: [String]?
 
+    /// Starts a table. Headers repeat when the body spills onto a new page.
     public init(headers: [String] = []) {
         self.headers = headers
     }
@@ -50,6 +51,7 @@ public final class Table {
     @discardableResult
     public func rowHeight(_ points: Double) -> Table { height = points; return self }
 
+    /// How many body rows have been added.
     public var count: Int { tableRows.count }
 
     /// Draws the table at the document's cursor.
@@ -163,6 +165,18 @@ public final class Table {
         guard !fractions.isEmpty, total > 0 else {
             return Array(repeating: available / Double(columns), count: columns)
         }
-        return fractions.map { ($0 / total) * available }
+
+        // Fewer fractions than columns used to leave the extra columns at
+        // width zero, and a zero-width cell is simply not drawn — a table
+        // losing its last column because `widths` was one short. The missing
+        // entries take the average of the given ones instead, which keeps
+        // the stated proportions and keeps every column on the page.
+        var padded = fractions
+        if padded.count < columns {
+            let average = total / Double(padded.count)
+            padded += Array(repeating: average, count: columns - padded.count)
+        }
+        let sum = padded.reduce(0, +)
+        return padded.map { ($0 / sum) * available }
     }
 }

@@ -47,6 +47,11 @@ enum SVGPath {
             let args = command.arguments
             var index = 0
 
+            // A drawing command with no numbers is malformed — running it
+            // anyway would read zeroes and draw a stray line to the origin.
+            // Only `Z` legitimately arrives bare.
+            if args.isEmpty, mode != "Z" { continue }
+
             repeat {
                 func next() -> Double {
                     defer { index += 1 }
@@ -126,9 +131,6 @@ enum SVGPath {
                 }
                 previous = command.letter
             } while index < args.count
-
-            // A command with no arguments (a bare `Z`) must still terminate.
-            if args.isEmpty, mode == "Z" { continue }
         }
         return out
     }

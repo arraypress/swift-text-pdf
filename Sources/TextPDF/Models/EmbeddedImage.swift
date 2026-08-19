@@ -238,6 +238,7 @@ public final class EmbeddedImage: @unchecked Sendable {
 
 // MARK: - Errors
 
+/// Why an image could not be embedded, each with the command that fixes it.
 public enum ImageError: Error, LocalizedError, Equatable {
 
     case unreadable(String)
