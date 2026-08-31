@@ -112,13 +112,7 @@ public struct FontFamily: Sendable {
     }
 
     private func nearest(to weight: Weight, in faces: [Weight: EmbeddedFont]) -> EmbeddedFont? {
-        faces
-            .min { left, right in
-                let a = abs(left.key.rawValue - weight.rawValue)
-                let b = abs(right.key.rawValue - weight.rawValue)
-                return a == b ? left.key > right.key : a < b
-            }?
-            .value
+        WeightResolution.nearest(to: weight, among: Array(faces.keys)).flatMap { faces[$0] }
     }
 
     /// The face standing in for one of the base-14 fonts.

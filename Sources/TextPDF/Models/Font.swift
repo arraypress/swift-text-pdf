@@ -68,37 +68,13 @@ public enum Font: String, Sendable, CaseIterable {
     /// three UTF-8 bytes rather than one CP1252 byte was exactly that mistake,
     /// and it threw every right-aligned column that contained one.
     public func widthOf(_ text: String, size: Double) -> Double {
-        let table = widths
-        let fallback = table[Int(UInt8(ascii: "n"))] ?? 556
-        var total = 0
-        var escaping = false
-
-        // `escape` yields one scalar per encoded byte, so the scalar value is
-        // the byte.
-        for scalar in PDFEncoding.escape(text).unicodeScalars {
-            if escaping {
-                escaping = false
-            } else if scalar == "\\" {
-                // The backslash of an escape pair is not drawn.
-                escaping = true
-                continue
-            }
-            total += table[Int(scalar.value)] ?? fallback
-        }
-        return Double(total) * size / 1000
+        Measuring.width(of: text, table: widths, size: size)
     }
 
     /// How many characters of `text` fit in `width`, truncating with an
     /// ellipsis when it does not.
     public func truncate(_ text: String, size: Double, width: Double) -> String {
-        guard widthOf(text, size: size) > width else { return text }
-
-        let ellipsis = widthOf("...", size: size)
-        var trimmed = text
-        while !trimmed.isEmpty, widthOf(trimmed, size: size) + ellipsis > width {
-            trimmed.removeLast()
-        }
-        return trimmed + "..."
+        Measuring.truncated(text, size: size, width: width, table: widths)
     }
 
     /// The PDF resource name this font is registered under.
