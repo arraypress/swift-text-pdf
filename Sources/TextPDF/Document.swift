@@ -19,6 +19,12 @@ public final class Document {
 
     // MARK: Configuration
 
+    /// The named size the page was made from.
+    ///
+    /// A page made to exact dimensions — see ``init(width:height:margin:fontSize:leading:)``
+    /// — has no named size and reports `.a4`, which means nothing for it.
+    /// ``width()`` and ``height()`` are the page either way, and nothing in
+    /// this writer reads this after the dimensions are settled.
     public let size: PageSize
     public let orientation: Orientation
     public let margin: Double
@@ -185,6 +191,37 @@ public final class Document {
         self.pageWidth = orientation == .landscape ? height : width
         self.pageHeight = orientation == .landscape ? width : height
         self.y = self.pageHeight - margin
+    }
+
+    /// A page of an exact size, for a document that is not a sheet of paper.
+    ///
+    /// A business card, a label, a ticket, a card with a bleed around it —
+    /// none of which is a named size, and a bleed is not one even in
+    /// principle, because it depends on what the printer asks for.
+    ///
+    /// ``size`` reports `.a4` for such a page and means nothing; ``width()``
+    /// and ``height()`` are the page.
+    ///
+    /// - Parameters:
+    ///   - width: The page's width in points, as it will be trimmed.
+    ///   - height: The page's height in points.
+    ///   - margin: Kept from every edge.
+    public init(
+        width: Double,
+        height: Double,
+        margin: Double = 56,
+        fontSize: Double = 10,
+        leading: Double = 14
+    ) {
+        self.size = .a4
+        self.orientation = width > height ? .landscape : .portrait
+        self.margin = margin
+        self.fontSize = fontSize
+        self.leading = leading
+
+        self.pageWidth = width
+        self.pageHeight = height
+        self.y = height - margin
     }
 
     // MARK: Geometry
