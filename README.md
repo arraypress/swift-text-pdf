@@ -18,6 +18,33 @@ pdf.rule()
 try pdf.save(to: url)     // 3 KB
 ```
 
+## Barcodes
+
+```swift
+pdf.barcode("5012345678900", symbology: .ean13, x: 40, y: 700, width: 200, height: 50)
+pdf.barcode("ASSET-014", symbology: .code128, x: 40, y: 600, width: 200, height: 50)
+```
+
+EAN-13, UPC-A, Code 128, Code 39, ITF and Codabar, drawn as **vector bars** beside `qr()` and
+for the same reason: a rasterised barcode scaled to print size lands its bars on fractional
+pixels and arrives soft-edged, and a scanner reading it at an angle in shop lighting then has
+to work for it.
+
+Three things Core Image does not give you, which is where the work is:
+
+- **The human-readable line.** Core Image draws bars only. An EAN-13 without its digits is not
+  a valid retail barcode — and the digits go in a particular place: the first outside the bars
+  to the left, then six under each half, split by the centre guard.
+- **Check digits as an answer.** Handed a wrong one, Core Image logs *"Invalid check digit.
+  Expected 0 but got 1"* to the console and returns nil. `Barcode.checkDigit(for:)` computes
+  it, and a mismatch comes back as `.badCheckDigit(expected:got:)`.
+- **UPC-A**, which is an EAN-13 with a leading zero and has no generator of its own.
+
+Pass 12 digits and the check digit is computed; pass 13 and it is validated.
+
+Every symbology is tested by rendering the page, compositing it onto white and reading it back
+with Vision — so "it scans" is asserted, not hoped for.
+
 ## Why
 
 Generating a PDF usually means shelling out to a browser engine, pulling in a rendering library and its dependency tree, or paying an API to render a document that never leaves your own server.
