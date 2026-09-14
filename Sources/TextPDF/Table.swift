@@ -19,6 +19,7 @@ public final class Table {
     private var totalRow: [String]?
     private var overflow: Overflow = .truncate
     private var repeatedColumns = 1
+    private var ruled = false
 
     /// What a table does when its content is wider than the page.
     public enum Overflow: Sendable {
@@ -73,6 +74,14 @@ public final class Table {
     @discardableResult
     public func striped(_ enabled: Bool = true) -> Table { striped = enabled; return self }
 
+    /// A hairline under every body row.
+    ///
+    /// The alternative to striping for a table read across rather than down —
+    /// and the one that survives being photocopied, where a pale band does
+    /// not.
+    @discardableResult
+    public func ruled(_ enabled: Bool = true) -> Table { ruled = enabled; return self }
+
     /// What to do when the content is wider than the page.
     @discardableResult
     public func overflow(_ mode: Overflow) -> Table { overflow = mode; return self }
@@ -120,6 +129,10 @@ public final class Table {
                 )
             }
             drawRow(pdf, cells: cells, widths: columnWidths, size: pointSize, font: .helvetica, color: nil)
+            if ruled {
+                pdf.line(from: pdf.left(), pdf.cursor(), to: pdf.right(), pdf.cursor(),
+                         color: .grey(210), thickness: 0.25)
+            }
         }
 
         if let totalRow {
@@ -229,6 +242,10 @@ public final class Table {
             }
             drawWrapped(pdf, cells: cells, columns: columns, widths: widths, size: size,
                         rowHeight: rows, lineHeight: lineHeight, font: .helvetica, color: nil)
+            if ruled {
+                pdf.line(from: pdf.left(), pdf.cursor(), to: pdf.right(), pdf.cursor(),
+                         color: .grey(210), thickness: 0.25)
+            }
         }
 
         guard drawTotal, let totalRow else { return }

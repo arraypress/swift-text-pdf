@@ -215,4 +215,39 @@ final class TableFitTests: XCTestCase {
         let groups = TableLayout.split(minimum: [50, 50, 50], available: 500, repeated: 2)
         XCTAssertEqual(groups, [[0, 1, 2]])
     }
+    // MARK: - Rules
+
+    /// A style option that changes nothing is worse than no option: it reads
+    /// as working. `.ruled()` has to put ink on the page.
+    func testRuledDrawsMoreThanUnruled() throws {
+        func bytes(ruled: Bool) -> Int {
+            let pdf = Document(size: .a4, margin: 48)
+            let table = Table(headers: ["A", "B"])
+                .widths([1, 1])
+                .overflow(.wrap)
+                .rows((0..<20).map { [String($0), "value"] })
+            if ruled { table.ruled() }
+            table.draw(pdf)
+            return pdf.render().count
+        }
+
+        XCTAssertGreaterThan(bytes(ruled: true), bytes(ruled: false), "ruled drew nothing extra")
+    }
+
+    /// And it has to work the same way in the fixed-height path, or the option
+    /// means one thing with .wrap and another without it.
+    func testRulesAlsoDrawUnderTruncatedRows() throws {
+        func bytes(ruled: Bool) -> Int {
+            let pdf = Document(size: .a4, margin: 48)
+            let table = Table(headers: ["A", "B"])
+                .widths([1, 1])
+                .rows((0..<20).map { [String($0), "value"] })
+            if ruled { table.ruled() }
+            table.draw(pdf)
+            return pdf.render().count
+        }
+
+        XCTAssertGreaterThan(bytes(ruled: true), bytes(ruled: false))
+    }
+
 }

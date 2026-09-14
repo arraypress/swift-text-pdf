@@ -96,6 +96,10 @@ row — without them the second table is a block of values with nothing saying
 which row each belongs to, which is worse than truncation because it looks
 complete.
 
+`.ruled()` puts a hairline under every body row — the alternative to
+`.striped()` for a table read across rather than down, and the one that
+survives being photocopied where a pale band does not.
+
 `.wrap` is the same cell handling at the widths you set: cells break onto more
 lines and the row grows to the tallest of them, kept whole across a page
 break. `.truncate` is the default and is unchanged, so nothing that already
