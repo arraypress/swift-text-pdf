@@ -56,7 +56,7 @@ This writes the PDF directly. It covers what a document actually needs — text 
 ## Features
 
 - 📄 **Real multi-page flow** — content breaks across pages, headers repeat, footers know the final page count
-- 📊 **Tables** — proportional columns, alignment, striping, measured truncation
+- 📊 **Tables** — proportional columns, alignment, striping, wrapping, and a fit that never drops a column
 - ✒️ **Vector logos** — an SVG `path` becomes PDF path operators, sharp at any zoom, a few hundred bytes
 - 🔒 **Injection-safe** — a customer's name cannot escape the content stream
 - ✒️ **Real typography** — embed a family, with metrics from the face and only the glyphs used carried
@@ -71,6 +71,39 @@ This writes the PDF directly. It covers what a document actually needs — text 
 - 🔖 **Bookmarks** — an outline for anything longer than a scroll
 - ┈ **Dashed rules** — a signature line, a cut-here, a leader
 - 🪶 **No package dependencies** — Foundation and the system's own frameworks, nothing from SwiftPM
+
+## Tables that do not lose anything
+
+```swift
+Table(headers: headers)
+    .overflow(.fit)      // measure, narrow, scale, then split
+    .identifying(2)      // name and date lead every table
+    .rows(rows)
+    .draw(pdf)
+```
+
+Most exporters answer "more columns than page" by cutting. Ask for fifty and
+eight arrive, with nothing said about the other forty-two — and a truncated
+column looks exactly like a column of short values, so the loss is invisible
+in the document itself.
+
+`.fit` never loses a character. Columns are measured against their content and
+narrowed towards it, taking width from the columns with most to spare so a
+long path gives up room and a date column does not wrap. Then the type steps
+down half a point at a time to six. Only when both are exhausted does the
+table split into sequential tables, each repeating the columns that identify a
+row — without them the second table is a block of values with nothing saying
+which row each belongs to, which is worse than truncation because it looks
+complete.
+
+`.wrap` is the same cell handling at the widths you set: cells break onto more
+lines and the row grows to the tallest of them, kept whole across a page
+break. `.truncate` is the default and is unchanged, so nothing that already
+draws a table changes shape.
+
+Fifty columns on A4 becomes four tables over four pages, at six point, with
+every value present — asserted by rendering the PDF and reading the text back
+out of it.
 
 ## An e-invoice, and other files carried inside
 
