@@ -222,6 +222,14 @@ Set a word at a time rather than with the `Tw` operator. Tw adds its space to by
 
 The last line of a paragraph is left ragged. Stretching four words across a full measure is what makes justified text look like a ransom note.
 
+## Decomposed text
+
+macOS stores file names **decomposed**: `Jönsson` on disk is `o` followed by a
+combining diaeresis, not `ö`. Windows-1252 has `ö` and has no combining marks
+at all, so a name straight off the filesystem used to render as `Jo?nsson` — a
+question mark in the middle of somebody's name. Strings are composed before
+encoding, and measured the same way, so widths agree with what is drawn.
+
 ## Text beyond Latin-1
 
 The base-14 fonts every reader is required to have cover Windows-1252 and nothing else, so Greek, Cyrillic and CJK come out as `?` — visibly, rather than silently vanishing. Point the document at a TrueType font and they render properly:

@@ -250,4 +250,44 @@ final class TableFitTests: XCTestCase {
         XCTAssertGreaterThan(bytes(ruled: true), bytes(ruled: false))
     }
 
+    // MARK: - Decomposed text
+
+    /// macOS stores file names DECOMPOSED. `Jönsson` on disk is `o` plus a
+    /// combining diaeresis, and Windows-1252 has no combining marks — so
+    /// without composing first, every accented name in a listing renders with
+    /// a question mark in the middle of it. Found on real signed contracts.
+    func testDecomposedAccentsSurviveEncoding() throws {
+        let decomposed = "Joakim Jo\u{0308}nsson"
+        let composed = "Joakim Jönsson"
+        XCTAssertEqual(decomposed, composed, "Swift compares these as equal — the difference is in the scalars")
+        XCTAssertGreaterThan(
+            decomposed.unicodeScalars.count, composed.unicodeScalars.count,
+            "the fixture must really be decomposed"
+        )
+
+        let pdf = Document(size: .a4, margin: 48)
+        Table(headers: ["Name"]).overflow(.fit).rows([[decomposed]]).draw(pdf)
+
+        let document = try XCTUnwrap(PDFDocument(data: pdf.render()))
+        let text = document.page(at: 0)?.string ?? ""
+        XCTAssertFalse(text.contains("?"), "an accent became a question mark: \(text)")
+        XCTAssertTrue(
+            text.replacing(/\s+/, with: "").contains("Jönsson"),
+            "the composed name is missing: \(text)"
+        )
+    }
+
+    /// And the widths have to agree, or a composed name measures as one
+    /// character wider than it draws.
+    func testDecomposedTextMeasuresAsItDraws() {
+        let pdf = Document(size: .a4, margin: 48)
+        let decomposed = "Jo\u{0308}nsson"
+        let composed = "Jönsson"
+        XCTAssertEqual(
+            pdf.width(of: decomposed, size: 10),
+            pdf.width(of: composed, size: 10),
+            accuracy: 0.01
+        )
+    }
+
 }

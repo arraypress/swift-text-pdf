@@ -36,11 +36,18 @@ enum PDFEncoding {
     /// there is an obvious equivalent and replaced with `?` otherwise, which
     /// is the honest outcome: silently dropping them would leave a name
     /// looking merely short rather than wrong.
+    ///
+    /// **Composed first.** macOS stores file names DECOMPOSED: `Jönsson` on
+    /// disk is `o` followed by a combining diaeresis, not `ö`. Windows-1252
+    /// has `ö` and has no combining marks at all, so without this every
+    /// accented file name in a listing renders as `Jo?nsson` — the accent
+    /// becoming a question mark in the middle of somebody's name. Measured on
+    /// a folder of real signed contracts.
     static func escape(_ text: String) -> String {
         var out = ""
         out.reserveCapacity(text.count + 8)
 
-        for scalar in text.unicodeScalars {
+        for scalar in text.precomposedStringWithCanonicalMapping.unicodeScalars {
             // C0 controls and DEL, including CR and LF.
             if scalar.value < 0x20 || scalar.value == 0x7F { continue }
 
