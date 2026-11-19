@@ -116,8 +116,8 @@ final class ExampleTests: XCTestCase {
 
         pdf.gap(24)
         pdf.text("Columns are fractions of the measure, not points, so the table fits whatever "
-                 + "page and margin it is given. A cell too long for its column is measured and "
-                 + "truncated rather than allowed to collide with the next one.", size: 9.5)
+                 + "page and margin it is given. A cell too long for its column wraps onto another "
+                 + "line and the row grows, rather than colliding with the next one or losing its end.", size: 9.5)
 
         try put(pdf, "tables.pdf")
     }

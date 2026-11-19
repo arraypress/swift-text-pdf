@@ -17,7 +17,7 @@ public final class Table {
     private var striped = false
     private var height: Double = 18
     private var totalRow: [String]?
-    private var overflow: Overflow = .truncate
+    private var overflow: Overflow = .wrap
     private var repeatedColumns = 1
     private var ruled = false
 
@@ -28,10 +28,17 @@ public final class Table {
         ///
         /// The cheapest answer, and the one most exporters give. It is also
         /// invisible: a truncated column looks exactly like a column of short
-        /// values, so nothing in the document says anything was lost.
+        /// values, so nothing in the document says anything was lost. Only
+        /// ever on request, and every cell it cuts is recorded in
+        /// ``Document/shortened`` and reported by ``Document/textWarnings``.
         case truncate
 
         /// Wrap cells onto more lines at the widths given, growing the row.
+        ///
+        /// The default. Columns are the widths set — equal shares when none
+        /// are — so a table whose cells fit is drawn exactly as a truncating
+        /// one would be, and one whose cells do not grows rather than loses
+        /// the end of them.
         case wrap
 
         /// Never lose a character.
@@ -157,18 +164,32 @@ public final class Table {
     /// Space between one column and the next.
     private static let gutter = 6.0
 
+    /// Space either side of a column boundary at widths the caller set —
+    /// what a truncating table has always kept, so switching to wrapping
+    /// moves nothing that already fitted.
+    private static let cellPadding = 6.0
+
+    /// Every column any row asks for. A row longer than the header used to
+    /// lose its extra cells to a zero width.
+    private var columnCount: Int {
+        max(headers.count, tableRows.map(\.count).max() ?? 0, totalRow?.count ?? 0)
+    }
+
     /// Draws a table that measures itself against its content.
     private func drawMeasured(_ pdf: Document, size: Double, headerFill: Color?) -> Document {
         let available = pdf.contentWidth()
-        let columnCount = max(headers.count, tableRows.map(\.count).max() ?? 0)
+        let columnCount = self.columnCount
         guard columnCount > 0 else { return pdf }
 
         // Explicit fractions are an instruction, not a suggestion: a caller
-        // who set them gets them, and wrapping does the rest.
-        if overflow == .wrap, !fractions.isEmpty {
+        // who set them gets them, and wrapping does the rest. Without them
+        // the columns take equal shares, as a truncating table's did — so a
+        // table that fits looks the same either way.
+        if overflow == .wrap {
             let widths = resolveWidths(available: available)
             drawGroup(pdf, columns: Array(0..<columnCount), widths: widths,
-                      size: size, headerFill: headerFill, drawTotal: true)
+                      size: size, headerFill: headerFill, drawTotal: true,
+                      padding: Self.cellPadding)
             return pdf
         }
 
@@ -194,7 +215,8 @@ public final class Table {
             let widths = TableLayout.grow(group.map { plan.widths[$0] }, to: available)
             drawGroup(
                 pdf, columns: group, widths: widths, size: plan.size,
-                headerFill: headerFill, drawTotal: index == plan.groups.count - 1
+                headerFill: headerFill, drawTotal: index == plan.groups.count - 1,
+                padding: Self.gutter / 2
             )
         }
         return pdf
@@ -203,45 +225,78 @@ public final class Table {
     /// Draws one table over a subset of the columns.
     private func drawGroup(
         _ pdf: Document, columns: [Int], widths: [Double],
-        size: Double, headerFill: Color?, drawTotal: Bool
+        size: Double, headerFill: Color?, drawTotal: Bool, padding: Double
     ) {
-        let lineHeight = max(height, size * 1.35)
+        let rowing = Rowing(
+            pdf: pdf, columns: columns, widths: widths, size: size, padding: padding,
+            lineHeight: max(height, size * 1.35),
+            // Wrapped lines sit at the type's own spacing, not the row's: a row
+            // height of 18 is a band for one line, and three lines 18 apart
+            // read as three rows.
+            step: min(max(height, size * 1.35), size * 1.3),
+            alignments: alignments
+        )
+
+        let headerCells = columns.map { $0 < headers.count ? headers[$0] : "" }
+        let headerHeight = headers.isEmpty
+            ? 0 : rowing.height(of: rowing.wrap(headerCells, font: .helveticaBold))
 
         func header() {
             guard !headers.isEmpty else { return }
-            let cells = columns.map { $0 < headers.count ? headers[$0] : "" }
-            let rows = heightOf(cells, widths: widths, pdf: pdf, size: size, lineHeight: lineHeight)
             if let headerFill {
-                pdf.rect(x: pdf.left(), y: pdf.cursor() - rows, width: pdf.contentWidth(),
-                         height: rows, color: headerFill)
+                pdf.rect(x: pdf.left(), y: pdf.cursor() - headerHeight, width: pdf.contentWidth(),
+                         height: headerHeight, color: headerFill)
             }
             let top = pdf.cursor()
-            drawWrapped(pdf, cells: cells, columns: columns, widths: widths, size: size,
-                        rowHeight: rows, lineHeight: lineHeight,
+            rowing.draw(rowing.wrap(headerCells, font: .helveticaBold), lines: 0 ..< Int.max,
                         font: .helveticaBold, color: .grey(30))
             pdf.line(from: pdf.left(), top, to: pdf.right(), top, color: .grey(60), thickness: 0.75)
             pdf.line(from: pdf.left(), pdf.cursor(), to: pdf.right(), pdf.cursor(),
                      color: .grey(60), thickness: 0.75)
         }
 
-        header()
-
-        for (index, row) in tableRows.enumerated() {
-            let cells = columns.map { $0 < row.count ? row[$0] : "" }
-            let rows = heightOf(cells, widths: widths, pdf: pdf, size: size, lineHeight: lineHeight)
+        /// One row, kept whole on a page — unless it is taller than a page,
+        /// when it flows on under the repeated header rather than running off
+        /// the foot of the first one.
+        func row(_ cells: [String], font: Font, color: Color?, fill: Color?) {
+            let wrapped = rowing.wrap(cells, font: font)
+            let depth = rowing.depth(of: wrapped)
+            let whole = rowing.height(of: wrapped)
+            let roomOnAFreshPage = pdf.height() - pdf.margin * 2 - headerHeight
 
             // A row is kept whole: breaking one across a page leaves an
             // orphaned line under a heading it does not belong to.
-            if pdf.remaining() < rows + lineHeight {
+            if pdf.remaining() < whole + rowing.lineHeight,
+               whole + rowing.lineHeight <= roomOnAFreshPage
+                || pdf.remaining() < rowing.lineHeight * 2 {
                 pdf.pageBreak()
                 header()
             }
-            if striped, index % 2 == 1 {
-                pdf.rect(x: pdf.left(), y: pdf.cursor() - rows, width: pdf.contentWidth(),
-                         height: rows, color: .grey(248))
+
+            var first = 0
+            while first < depth {
+                let room = Int(((pdf.remaining() - rowing.lineHeight) / rowing.step).rounded(.down)) + 1
+                let count = min(depth - first, max(1, room))
+                let segment = rowing.lineHeight + Double(count - 1) * rowing.step
+                if let fill {
+                    pdf.rect(x: pdf.left(), y: pdf.cursor() - segment, width: pdf.contentWidth(),
+                             height: segment, color: fill)
+                }
+                rowing.draw(wrapped, lines: first ..< first + count, font: font, color: color)
+                first += count
+                if first < depth {
+                    pdf.pageBreak()
+                    header()
+                }
             }
-            drawWrapped(pdf, cells: cells, columns: columns, widths: widths, size: size,
-                        rowHeight: rows, lineHeight: lineHeight, font: .helvetica, color: nil)
+        }
+
+        header()
+
+        for (index, cells) in tableRows.enumerated() {
+            let cells = columns.map { $0 < cells.count ? cells[$0] : "" }
+            row(cells, font: .helvetica, color: nil,
+                fill: striped && index % 2 == 1 ? .grey(248) : nil)
             if ruled {
                 pdf.line(from: pdf.left(), pdf.cursor(), to: pdf.right(), pdf.cursor(),
                          color: .grey(210), thickness: 0.25)
@@ -250,67 +305,91 @@ public final class Table {
 
         guard drawTotal, let totalRow else { return }
         let cells = columns.map { $0 < totalRow.count ? totalRow[$0] : "" }
-        let rows = heightOf(cells, widths: widths, pdf: pdf, size: size, lineHeight: lineHeight)
-        if pdf.remaining() < rows + lineHeight {
+        let whole = rowing.height(of: rowing.wrap(cells, font: .helveticaBold))
+        if pdf.remaining() < whole + rowing.lineHeight {
             pdf.pageBreak()
             header()
         }
-        let top = pdf.cursor()
-        pdf.line(from: pdf.left(), top, to: pdf.right(), top, color: .grey(60), thickness: 0.75)
-        drawWrapped(pdf, cells: cells, columns: columns, widths: widths, size: size,
-                    rowHeight: rows, lineHeight: lineHeight,
-                    font: .helveticaBold, color: .grey(20))
+        pdf.line(from: pdf.left(), pdf.cursor(), to: pdf.right(), pdf.cursor(),
+                 color: .grey(60), thickness: 0.75)
+        row(cells, font: .helveticaBold, color: .grey(20), fill: nil)
         pdf.line(from: pdf.left(), pdf.cursor(), to: pdf.right(), pdf.cursor(),
                  color: .grey(60), thickness: 0.75)
     }
 
-    /// How tall a row has to be for its tallest cell.
-    private func heightOf(
-        _ cells: [String], widths: [Double], pdf: Document,
-        size: Double, lineHeight: Double
-    ) -> Double {
-        var lines = 1
-        for (index, cell) in cells.enumerated() where index < widths.count {
-            let inner = widths[index] - Self.gutter
-            guard inner > 0 else { continue }
-            lines = max(lines, pdf.lines(of: cell, width: inner, size: size).count)
-        }
-        return Double(lines) * lineHeight
+    /// The width a cell's text gets inside its column.
+    ///
+    /// Padding sits between columns, not outside them, so the first column
+    /// meets the left margin and the last the right. Never less than a
+    /// point: a column squeezed to nothing still has to draw its text, one
+    /// character a line if it comes to that, rather than skip the cell.
+    static func inner(_ width: Double, index: Int, count: Int, padding: Double) -> Double {
+        let leading = index == 0 ? 0 : padding
+        let trailing = index == count - 1 ? 0 : padding
+        return max(width - leading - trailing, 1)
     }
 
-    /// Draws one row, wrapping each cell inside its column.
-    private func drawWrapped(
-        _ pdf: Document, cells: [String], columns: [Int], widths: [Double],
-        size: Double, rowHeight: Double, lineHeight: Double, font: Font, color: Color?
-    ) {
-        var x = pdf.left()
-        let top = pdf.cursor()
+    /// Wrapping and setting the rows of one table.
+    private struct Rowing {
+        let pdf: Document
+        let columns: [Int]
+        let widths: [Double]
+        let size: Double
+        let padding: Double
 
-        for (index, cell) in cells.enumerated() where index < widths.count {
-            let width = widths[index]
-            guard width > 0 else { continue }
+        /// The band one line of a row sits in.
+        let lineHeight: Double
 
-            let leading = index == 0 ? 0 : Self.gutter / 2
-            let trailing = index == cells.count - 1 ? 0 : Self.gutter / 2
-            let inner = width - leading - trailing
-            guard inner > 0 else { x += width; continue }
+        /// From one wrapped line to the next.
+        let step: Double
 
-            let lines = pdf.lines(of: cell, width: inner, size: size)
-            for (line, text) in lines.enumerated() {
-                pdf.textAt(
-                    text,
-                    x: x + leading,
-                    y: top - Double(line) * lineHeight - font.bandBaseline(bandHeight: lineHeight, size: size),
-                    size: size,
-                    font: font,
-                    color: color,
-                    align: alignments[columns[index]] ?? .left,
-                    boxWidth: inner
-                )
+        let alignments: [Int: Align]
+
+        /// Each cell broken into the lines it needs.
+        func wrap(_ cells: [String], font: Font) -> [[String]] {
+            cells.enumerated().map { index, cell in
+                guard index < widths.count else { return [] }
+                let inner = Table.inner(widths[index], index: index, count: cells.count,
+                                        padding: padding)
+                return pdf.lines(of: cell, width: inner, size: size, font: font)
             }
-            x += width
         }
-        pdf.gap(rowHeight)
+
+        func depth(of wrapped: [[String]]) -> Int { max(1, wrapped.map(\.count).max() ?? 1) }
+
+        /// How tall a row has to be for its tallest cell.
+        func height(of wrapped: [[String]]) -> Double {
+            lineHeight + Double(depth(of: wrapped) - 1) * step
+        }
+
+        /// Sets `lines` of a wrapped row at the cursor, and moves past them.
+        func draw(_ wrapped: [[String]], lines: Range<Int>, font: Font, color: Color?) {
+            let top = pdf.cursor()
+            let first = lines.lowerBound
+            let last = min(lines.upperBound, depth(of: wrapped))
+            let band = font.bandBaseline(bandHeight: lineHeight, size: size)
+            var x = pdf.left()
+
+            for (index, cellLines) in wrapped.enumerated() where index < widths.count {
+                let leading = index == 0 ? 0 : padding
+                let inner = Table.inner(widths[index], index: index, count: wrapped.count,
+                                        padding: padding)
+                for line in first ..< max(first, min(last, cellLines.count)) {
+                    pdf.textAt(
+                        cellLines[line],
+                        x: x + leading,
+                        y: top - band - Double(line - first) * step,
+                        size: size,
+                        font: font,
+                        color: color,
+                        align: alignments[columns[index]] ?? .left,
+                        boxWidth: inner
+                    )
+                }
+                x += widths[index]
+            }
+            pdf.gap(lineHeight + Double(max(last - first, 1) - 1) * step)
+        }
     }
 
     /// What each column would like to be: its widest cell, plus the gutter.
@@ -413,7 +492,7 @@ public final class Table {
 
     /// Turns relative fractions into point widths.
     private func resolveWidths(available: Double) -> [Double] {
-        let columns = max(headers.count, tableRows.first?.count ?? 0)
+        let columns = columnCount
         guard columns > 0 else { return [] }
 
         let total = fractions.reduce(0, +)

@@ -22,7 +22,7 @@ endobj
 <</Type /Page /Parent 2 0 R /Resources <</Font <</F1 3 0 R /F2 4 0 R /F3 5 0 R>>>> /Contents 8 0 R>>
 endobj
 8 0 obj
-<</Length 2200>>
+<</Length 2226>>
 stream
 q
 BT
@@ -248,7 +248,7 @@ q
 BT
 /F1 9.50 Tf
 48.00 581.48 Td
-(for its column is measured and truncated rather than allowed to collide with the next one.) Tj
+(for its column wraps onto another line and the row grows, rather than colliding with the next one or losing its end.) Tj
 ET
 Q
 
@@ -268,5 +268,5 @@ xref
 trailer
 <</Size 9 /Root 1 0 R /Info 6 0 R /ID [<408EFC240FB12E29A2BC524DCABEA55D> <408EFC240FB12E29A2BC524DCABEA55D>]>>
 startxref
-5671
+5697
 %%EOF

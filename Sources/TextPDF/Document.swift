@@ -90,6 +90,59 @@ public final class Document {
         public let unsupportedScript: String?
     }
 
+    /// Text that was cut short to fit a space, as given and as drawn.
+    ///
+    /// Recorded by ``fit(_:into:size:font:face:)`` and by a ``Table`` asked
+    /// for ``Table/Overflow/truncate``. A shortened value looks exactly like a
+    /// short one, so nothing on the page says anything is missing — this is
+    /// the only place that does.
+    public private(set) var shortened: [Shortening] = []
+
+    /// A run cut short with an ellipsis.
+    public struct Shortening: Sendable, Equatable {
+
+        /// The text as it was given.
+        public let text: String
+
+        /// What was drawn instead.
+        public let shown: String
+    }
+
+    /// Runs drawn wholly or partly beyond the edge of the page.
+    ///
+    /// A reader clips at the page box, so whatever lands outside it is not
+    /// there — and nothing about the page that remains says so. Not checked
+    /// inside ``rotated(by:around:_:body:)``, where the coordinates are no
+    /// longer the page's.
+    public private(set) var outsidePage: [String] = []
+
+    /// How deep inside a rotation the drawing is, which takes the
+    /// coordinates off the page's axes.
+    var rotationDepth = 0
+
+    /// Everything about the text that did not reach the page as written.
+    ///
+    /// One sentence per run: shortened with an ellipsis, drawn off the edge
+    /// of the page, or carrying characters that print as `?`. Empty means
+    /// every run drawn appears in full. The arrays behind it —
+    /// ``shortened``, ``outsidePage`` and ``substitutions`` — are there for
+    /// a caller that reports each kind its own way.
+    public var textWarnings: [String] {
+        var out: [String] = []
+        for cut in shortened {
+            out.append("\"\(cut.text)\" was shortened to \"\(cut.shown)\" to fit its space.")
+        }
+        for run in outsidePage {
+            out.append("\"\(run)\" runs off the edge of the page.")
+        }
+        for substitution in substitutions {
+            let why = substitution.unsupportedScript.map { " (\($0))" } ?? ""
+            out.append("\"\(substitution.text)\" has characters the font cannot draw\(why); "
+                + "they print as ?.")
+        }
+        return out
+    }
+
     /// A font carried in the file, used for text the base-14 set cannot draw.
     ///
     /// Applied per string rather than wholesale: an invoice with one Cyrillic
@@ -481,10 +534,12 @@ public final class Document {
 
         // Alignment is computed from the measured width — the reason the font
         // metrics exist at all.
+        let measured = font.widthOf(text, size: size) + Self.trackingWidth(text, tracking)
         if align != .left, boxWidth > 0 {
-            let measured = font.widthOf(text, size: size) + Self.trackingWidth(text, tracking)
             originX += align == .right ? boxWidth - measured : (boxWidth - measured) / 2
         }
+        let spread = wordSpacing * Double(text.filter { $0 == " " }.count)
+        noteIfOutside(text, x: originX, width: measured + spread, baseline: baseline, size: size)
 
         let ink = color ?? .black()
         current += "q\n"
@@ -518,6 +573,24 @@ public final class Document {
         return tracking * Double(max(0, text.unicodeScalars.count - 1))
     }
 
+    /// Notes a run that lands beyond the page box, where a reader clips it.
+    ///
+    /// The vertical test is the band from baseline to cap height: a
+    /// descender dipping under the foot of the page is not lost text, a
+    /// baseline below it is. Half a point of grace either way, so a run set
+    /// flush to an edge by arithmetic is not reported for a rounding error.
+    private func noteIfOutside(_ text: String, x: Double, width: Double, baseline: Double, size: Double) {
+        guard rotationDepth == 0 else { return }
+        let grace = 0.5
+        let outside = x < -grace
+            || x + width > pageWidth + grace
+            || baseline < -grace
+            || baseline + size * 0.7 > pageHeight + grace
+        guard outside, !text.trimmingCharacters(in: .whitespaces).isEmpty,
+              !outsidePage.contains(text) else { return }
+        outsidePage.append(text)
+    }
+
     /// Notes a run the attached family could not draw.
     private func recordFallback(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
@@ -546,6 +619,7 @@ public final class Document {
         if align != .left, boxWidth > 0 {
             originX += align == .right ? boxWidth - measured : (boxWidth - measured) / 2
         }
+        noteIfOutside(text, x: originX, width: measured, baseline: baseline, size: size)
 
         let ink = color ?? .black()
         current += "q\n"
@@ -1180,6 +1254,11 @@ public final class Document {
     }
 
     /// `text` shortened with an ellipsis to fit `width`.
+    ///
+    /// Anything it shortens is recorded in ``shortened`` and reported by
+    /// ``textWarnings``: a cut value looks like a short one, so the page
+    /// itself never says. Prefer ``lines(of:width:size:font:face:)`` and a
+    /// taller space wherever the layout can give one.
     public func fit(
         _ text: String,
         into width: Double,
@@ -1214,7 +1293,11 @@ public final class Document {
         while !trimmed.isEmpty, measured(trimmed, font: font, size: size, face: face) + ellipsis > width {
             trimmed.removeLast()
         }
-        return trimmed + "..."
+        let shown = trimmed + "..."
+        if !shortened.contains(where: { $0.text == text && $0.shown == shown }) {
+            shortened.append(Shortening(text: text, shown: shown))
+        }
+        return shown
     }
 
     /// The width of text as it will actually be drawn.

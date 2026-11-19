@@ -142,15 +142,116 @@ final class TableFitTests: XCTestCase {
         XCTAssertTrue(squeezed(pages[0]).contains("Expenses"))
     }
 
-    /// Truncation stays the default, so nothing that already draws a table
-    /// changes shape under it.
-    func testTruncationRemainsTheDefault() throws {
+    /// Wrapping is the default: a cell too long for its column grows the row
+    /// rather than losing its end. Truncation used to be, and a cut value
+    /// looks exactly like a short one, so nothing on the page said so.
+    func testTheDefaultKeepsEveryCharacter() throws {
         let long = String(repeating: "abcdefghij", count: 12)
         let pdf = Document(size: .a4, margin: 48)
         Table(headers: ["A", "B"]).widths([1, 1]).rows([[long, "x"]]).draw(pdf)
 
-        let all = try text(of: pdf.render()).joined()
-        XCTAssertTrue(all.contains("..."), "the default stopped truncating")
+        let all = squeezed(try text(of: pdf.render()).joined())
+        XCTAssertTrue(all.contains(long), "the default lost the end of a cell")
+        XCTAssertFalse(all.contains("..."), "the default still truncates")
+        XCTAssertTrue(pdf.textWarnings.isEmpty, "nothing was lost, so nothing to warn about")
+    }
+
+    /// The switch to wrapping must not move anything that already fitted:
+    /// the same padding, baselines and page breaks as a truncating table, so
+    /// every document drawn before reads the same after.
+    func testATableThatFitsIsDrawnAsTruncationDrewIt() {
+        func drawn(_ mode: Table.Overflow?) -> Data {
+            let pdf = Document(size: .a4, margin: 48)
+            let table = Table(headers: ["Date", "Description", "Amount"])
+                .widths([1, 3, 1]).align([2: .right]).striped().ruled()
+                .rows((1...60).map { ["2026-11-\($0 % 28 + 1)", "Line \($0)", "£\($0).00"] })
+                .total(["", "Total", "£1,830.00"])
+            if let mode { table.overflow(mode) }
+            table.draw(pdf, headerFill: .grey(240))
+            return pdf.render(creationDate: Date(timeIntervalSince1970: 0))
+        }
+        XCTAssertEqual(drawn(nil), drawn(.truncate))
+    }
+
+    /// Asked for, truncation still cuts — and says what it cut.
+    func testTruncationOnRequestIsRecorded() throws {
+        let long = String(repeating: "abcdefghij", count: 12)
+        let pdf = Document(size: .a4, margin: 48)
+        Table(headers: ["A", "B"]).widths([1, 1]).overflow(.truncate).rows([[long, "x"]]).draw(pdf)
+
+        XCTAssertTrue(try text(of: pdf.render()).joined().contains("..."))
+        XCTAssertEqual(pdf.shortened.map(\.text), [long])
+        XCTAssertTrue(pdf.shortened[0].shown.hasSuffix("..."))
+        XCTAssertEqual(pdf.textWarnings.count, 1)
+        XCTAssertTrue(pdf.textWarnings[0].contains(long))
+    }
+
+    /// A row with more cells than the header — or than the first row — used
+    /// to give the extras a width of zero, and a zero-width cell was skipped.
+    func testCellsBeyondTheFirstRowAreDrawn() throws {
+        for mode in [Table.Overflow.wrap, .truncate, .fit] {
+            let pdf = Document(size: .a4, margin: 48)
+            Table(headers: ["A", "B"]).overflow(mode)
+                .rows([["a1", "b1"], ["a2", "b2", "extra-cell"]])
+                .draw(pdf)
+            let all = squeezed(try text(of: pdf.render()).joined())
+            XCTAssertTrue(all.contains("extra-cell"), "\(mode) dropped a cell past the header")
+        }
+    }
+
+    /// A row taller than a page cannot be kept whole. It flows on under the
+    /// repeated header instead of running off the foot of the first page —
+    /// where the reader clips it and the end of the cell is simply gone.
+    func testARowTallerThanAPageFlowsOntoTheNext() throws {
+        let words = (1...900).map { "word\($0)" }
+        let pdf = Document(size: .a4, margin: 48)
+        Table(headers: ["Date", "Description"]).widths([1, 3])
+            .rows([["2026-11-01", "short"], ["2026-11-02", words.joined(separator: " ")],
+                   ["2026-11-03", "after"]])
+            .draw(pdf)
+
+        let pages = try text(of: pdf.render())
+        XCTAssertGreaterThan(pages.count, 1)
+        // The repeated header is the only thing between one page's part of
+        // the cell and the next's.
+        let all = squeezed(pages.joined()).replacing("DateDescription", with: "")
+        XCTAssertTrue(all.contains(words.joined()), "a word of the tall cell was lost")
+        XCTAssertTrue(all.contains("2026-11-03after"))
+        XCTAssertEqual(pdf.outsidePage, [], "a line ran off the page")
+        XCTAssertTrue(squeezed(pages[1]).hasPrefix("DateDescription"), "the header repeats")
+    }
+
+    /// Wrapped lines sit at the type's spacing, not a row apart.
+    func testWrappedLinesAreSetCloserThanRows() {
+        let pdf = Document(size: .a4, margin: 48)
+        let top = pdf.cursor()
+        Table().widths([1, 1]).rowHeight(18)
+            .rows([["one two three four five six seven eight nine ten eleven twelve "
+                    + "thirteen fourteen fifteen sixteen seventeen eighteen", "x"]])
+            .draw(pdf, size: 8.5)
+        let lines = pdf.drawnText.count - 1
+        XCTAssertGreaterThan(lines, 1)
+        XCTAssertEqual(top - pdf.cursor(), 18 + Double(lines - 1) * 8.5 * 1.3, accuracy: 0.01)
+    }
+
+    /// A bold header is measured in bold. Measured in the regular weight, a
+    /// heading that just fits wraps one word short and overprints the rule.
+    func testAHeaderIsMeasuredInItsOwnWeight() {
+        let pdf = Document(size: .a4, margin: 48)
+        // Each column is 1/8 of the content width; find a heading that fits
+        // in regular weight but not in bold.
+        let inner = pdf.contentWidth() / 8 - 12
+        // r is a sixth wider in bold; W is not wider at all.
+        var heading = "r"
+        while pdf.width(of: heading + "r", size: 10, font: .helvetica) <= inner { heading += "r" }
+        XCTAssertGreaterThan(pdf.width(of: heading, size: 10, font: .helveticaBold), inner,
+                             "the probe needs a heading only bold overflows")
+
+        let probe = Document(size: .a4, margin: 48)
+        Table(headers: ["a", heading, "c", "d", "e", "f", "g", "h"]).rows([["1", "2"]]).draw(probe)
+        let flat = Document(size: .a4, margin: 48)
+        Table(headers: ["a", "b", "c", "d", "e", "f", "g", "h"]).rows([["1", "2"]]).draw(flat)
+        XCTAssertLessThan(probe.cursor(), flat.cursor(), "the bold heading did not get a second line")
     }
 
     // MARK: - The arithmetic

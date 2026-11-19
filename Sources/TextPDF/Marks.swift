@@ -59,7 +59,9 @@ extension Document {
             PDFEncoding.number(x - x * cosine + y * sine),
             PDFEncoding.number(y - x * sine - y * cosine)
         )
+        rotationDepth += 1
         body()
+        rotationDepth -= 1
         current += "Q\n"
         return self
     }

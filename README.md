@@ -100,10 +100,12 @@ complete.
 `.striped()` for a table read across rather than down, and the one that
 survives being photocopied where a pale band does not.
 
-`.wrap` is the same cell handling at the widths you set: cells break onto more
-lines and the row grows to the tallest of them, kept whole across a page
-break. `.truncate` is the default and is unchanged, so nothing that already
-draws a table changes shape.
+`.wrap` is the default: cells break onto more lines at the widths you set
+(equal shares when you set none) and the row grows to the tallest of them,
+kept whole across a page break. A table whose cells fit is drawn exactly as
+the old truncating default drew it — same padding, same baselines, same page
+breaks — so only a table that was losing text changes shape. `.truncate` is
+still there on request, and every cell it cuts is recorded.
 
 Fifty columns on A4 becomes four tables over four pages, at six point, with
 every value present — asserted by rendering the PDF and reading the text back
@@ -229,6 +231,24 @@ combining diaeresis, not `ö`. Windows-1252 has `ö` and has no combining marks
 at all, so a name straight off the filesystem used to render as `Jo?nsson` — a
 question mark in the middle of somebody's name. Strings are composed before
 encoding, and measured the same way, so widths agree with what is drawn.
+
+## Text that did not reach the page
+
+A cut value looks like a short one, a run clipped at the page edge looks like
+the end of the line, and a question mark looks like a typo — none of them says
+anything on the page. The document says instead:
+
+```swift
+pdf.textWarnings   // one sentence per run that did not arrive as written
+pdf.shortened      // cut with an ellipsis, by fit(_:into:) or a .truncate table
+pdf.outsidePage    // drawn wholly or partly beyond the page box
+pdf.substitutions  // characters no font could draw, printed as ?
+pdf.drawnText      // every run drawn, to check a document against its data
+```
+
+Empty `textWarnings` means every run drawn appears in full. Text inside
+`rotated` is not checked for the page edge — a diagonal watermark's unrotated
+coordinates run past it by design.
 
 ## Text beyond Latin-1
 
